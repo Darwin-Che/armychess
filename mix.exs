@@ -16,10 +16,13 @@ defmodule Armychess.MixProject do
   # Configuration for the OTP application.
   #
   # Type `mix help compile.app` for more information.
+  defp extra_applications(:dev), do: [:wx, :observer]
+  defp extra_applications(_), do: []
+
   def application do
     [
       mod: {Armychess.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: extra_applications(Mix.env()) ++ [:logger, :runtime_tools]
     ]
   end
 
@@ -57,7 +60,8 @@ defmodule Armychess.MixProject do
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
-      {:bandit, "~> 1.2"}
+      {:bandit, "~> 1.2"},
+      {:spear, "~> 1.4"},
     ]
   end
 

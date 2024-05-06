@@ -1,4 +1,4 @@
-defmodule Armychess.Games.Game do
+defmodule Armychess.Db.Game do
   use Ecto.Schema
   import Ecto.Changeset
 

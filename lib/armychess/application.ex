@@ -10,6 +10,7 @@ defmodule Armychess.Application do
     children = [
       ArmychessWeb.Telemetry,
       Armychess.Repo,
+      {DynamicSupervisor, name: Armychess.Server.PlaySession.DSupervisor, strategy: :one_for_one},
       {DNSCluster, query: Application.get_env(:armychess, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Armychess.PubSub},
       # Start the Finch HTTP client for sending emails

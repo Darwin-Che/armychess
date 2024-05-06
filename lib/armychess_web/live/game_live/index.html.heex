@@ -1,0 +1,14 @@
+<div>
+  <h1 class="grow text-2xl font-bold">
+  Links
+  </h1>
+</div>
+
+<button phx-click="click-create-game">
+  Create Game
+  <%= @create_game_id %>
+</button>
+
+<div :for={game <- @games}>
+  <%= game.id %>
+</div>

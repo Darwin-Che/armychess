@@ -1,0 +1,36 @@
+<svg width="1405" height="2100" viewBox="0 0 1405 2100" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M117.083 225V1875" stroke="black" stroke-width="20"/>
+<path d="M1263 225L117.083 225" stroke="black" stroke-width="20"/>
+<path d="M1263 1875V225" stroke="black" stroke-width="20"/>
+<path d="M117.083 1875L1263 1875" stroke="black" stroke-width="20"/>
+<path d="M117.083 825L1263 825" stroke="black" stroke-width="20"/>
+<path d="M117.083 1275L1263 1275" stroke="black" stroke-width="20"/>
+<path d="M690.042 825V1290" stroke="black" stroke-width="20"/>
+<path d="M117.083 225V1875" stroke="white" stroke-width="12" stroke-dasharray="24 24"/>
+<path d="M1263 225L117.083 225" stroke="white" stroke-width="12" stroke-dasharray="24 24"/>
+<path d="M1263 1875V225" stroke="white" stroke-width="12" stroke-dasharray="24 24"/>
+<path d="M117.083 1875L1263 1875" stroke="white" stroke-width="12" stroke-dasharray="24 24"/>
+<path d="M117.083 825L1263 825" stroke="white" stroke-width="12" stroke-dasharray="24 24"/>
+<path d="M117.083 1275L1263 1275" stroke="white" stroke-width="12" stroke-dasharray="24 24"/>
+<path d="M690.042 825V1290" stroke="white" stroke-width="12" stroke-dasharray="24 24"/>
+<path d="M117.083 225V75L1263 74.9999V225" stroke="black" stroke-width="5"/>
+<path d="M1263 1875V2025L117.083 2025V1875" stroke="black" stroke-width="5"/>
+<path d="M403.563 80V825" stroke="black" stroke-width="5"/>
+<path d="M976.521 80V825" stroke="black" stroke-width="5"/>
+<path d="M117.083 225L1263 825" stroke="black" stroke-width="5"/>
+<path d="M1263 225L117.083 825" stroke="black" stroke-width="5"/>
+<path d="M690.042 225L117.083 525L690.042 825L1263 525L690.042 225Z" stroke="black" stroke-width="5"/>
+<path d="M117.083 375L1263 375" stroke="black" stroke-width="5"/>
+<path d="M117.083 675L1263 675" stroke="black" stroke-width="5"/>
+<path d="M403.563 1275V2020" stroke="black" stroke-width="5"/>
+<path d="M976.521 1275V2020" stroke="black" stroke-width="5"/>
+<path d="M1263 1275L117.083 1875" stroke="black" stroke-width="5"/>
+<path d="M690.042 1275L117.083 1575L690.042 1875L1263 1575L690.042 1275Z" stroke="black" stroke-width="5"/>
+<path d="M117.083 1425L1263 1425" stroke="black" stroke-width="5"/>
+<path d="M117.083 1725L1263 1725" stroke="black" stroke-width="5"/>
+<path d="M690.042 1275V2020" stroke="black" stroke-width="5"/>
+<path d="M690.042 75V825" stroke="black" stroke-width="5"/>
+<path d="M117.083 1275L1263 1875" stroke="black" stroke-width="5"/>
+<path d="M117.083 525L1263 525" stroke="black" stroke-width="5"/>
+<path d="M117.083 1575L1263 1575" stroke="black" stroke-width="5"/>
+</svg>
