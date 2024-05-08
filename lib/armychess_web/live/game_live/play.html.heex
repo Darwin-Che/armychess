@@ -1,17 +1,19 @@
-<%= if !@loading do %>
+<%= @game_phase %>
+
+<%= if @game_phase != :connecting do %>
 
 <div style="position:relative">
   <img src="/images/board.svg" style="position:relative"/>
 
   <div id="play-slots" phx-update="stream">
-    <%= for {id, slot} <- @streams.slots do %>
+    <%= for {id, slot} <- @streams.slot_stream do %>
       <div id={"mark_#{slot.id}"} class={"mark_#{slot.mark}"} hidden={slot.mark == nil}/>
       <button id={slot.id} class={"#{if slot.enabled do "slot-enabled" else "" end}"} phx-click="click-slot" phx-value-id={slot.id} disabled={!slot.enabled} />
     <% end %>
   </div>
 
   <div id="play-pieces" phx-update="stream">
-    <%= for {id, piece} <- @streams.pieces do %>
+    <%= for {id, piece} <- @streams.piece_stream do %>
       <button id={piece.id} btnpos={piece.slot} phx-click="click-chess" phx-value-id={piece.id} disabled={!piece.enabled} hidden={piece.slot == nil}>
         <img class="piece_img" src={"/images/piece_#{piece.display}.svg"}/>
       </button>
@@ -22,6 +24,6 @@
 
 <% else %>
 
-<div> Loading </div>
+<div> Connecting </div>
 
 <% end %>

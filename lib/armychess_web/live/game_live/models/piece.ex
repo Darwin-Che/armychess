@@ -8,7 +8,7 @@ defmodule ArmychessWeb.GameLive.Models.Piece do
   ]
 
   def is_valid_piece(piece) do
-    piece != nil
+    piece != nil and String.starts_with?(piece, "piece_")
   end
 
   def is_enemy_piece(piece) do

@@ -1,6 +1,6 @@
 defmodule ArmychessWeb.GameLive.Functions.Action do
   import Phoenix.Component, only: [assign: 3]
-  import Phoenix.LiveView, only: [stream_insert: 3]
+  import Phoenix.LiveView, only: [stream: 3, stream_insert: 3]
 
   alias ArmychessWeb.GameLive.Models.Game
   alias ArmychessWeb.GameLive.Models.Slot
@@ -10,51 +10,192 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
 
   require Logger
 
+  def init_slot(socket) do
+    slots = for s <- [0, 9], c <- (1..5), r <- (1..6) do
+      %Slot{
+        id: "slot_#{s}#{r}#{c}",
+      }
+    end
 
-  def ready(socket) do
-    # place_list [{piece, slot}]
-    place_list =
-      socket.assigns.game.piece_map
-      |> Enum.filter(fn {id, _} -> Piece.is_owned_piece(id) end)
-      |> Enum.map(fn {_, p} -> {p.display, p.slot} end)
+    slot_map = Map.new(slots, fn slot -> {slot.id, slot} end)
 
-    case PlaySession.ready(socket.assigns.game_id, place_list) do
-      :ok -> socket
-      :rejected -> socket |> assign(:loading, true)
+    socket
+    |> assign(:slot_map, slot_map)
+    |> stream(:slot_stream, slots)
+  end
+
+  @doc """
+  The function reads the current state in the socket, compare `game_state` to get diff.
+  It updates the socket with `game_phase`, `piece_map`, `piece_stream`, `board_map`
+  ```
+  session_state = %{
+    phase: , # {:ready, []}, {:move, "1"}, {:end, "1"}
+    owned_pieces: %{"slot_0xx" => "President"},
+    enemy_pieces: ["slot_9xx"],
+  }
+  ```
+  """
+  def init_game_state(socket, session_state) do
+    socket = case socket.assigns.game_phase do
+      :connecting ->
+        socket
+        |> init_owned_pieces(session_state)
+        |> init_enemy_pieces(session_state)
+        |> ready()
+
+      _ ->
+        # TODO: Verify the board from session_state with the current state
+        socket
+    end
+
+    socket
+    |> assign(:game_phase, translate_game_phase(session_state.phase, socket.assigns.player_side))
+  end
+
+  # Session Game State: {:ready, []}, {:move, "1"}, {:end, "1"}
+  # Action Game State: :connecting, :placing, :wait_placing, :moving, :wait_moving, :game_win, :game_lose
+  defp translate_game_phase(session_phase, player_side) do
+    case session_phase do
+      {:ready, ready_list} ->
+        if player_side not in ready_list do
+          :placing
+        else
+          :wait_placing
+        end
+      {:move, s} when player_side == s ->
+        :moving
+      {:move, s} when player_side != s ->
+        :wait_moving
+      {:end, s} when player_side == s ->
+        :game_win
+      {:end, s} when player_side != s ->
+        :game_lose
     end
   end
 
+  def assign_game_phase(socket, session) do
+    socket
+    |> assign(:game_phase, translate_game_phase(session.phase, socket.assigns.player_side))
+  end
+
+  def init_owned_pieces(socket, session_state) do
+    if Enum.any?(socket.assigns.piece_map, fn {id, _} -> Piece.is_owned_piece(id) end) do
+      Logger.error("Cannot init_owned_pieces : already initialized")
+      # TODO: exit
+    end
+
+    piece_map_owned =
+      Enum.with_index(session_state.owned_pieces)
+      |> Map.new(fn {{slot, display}, idx} ->
+        id = "piece_0#{idx |> Integer.to_string |> String.pad_leading(2, "0")}"
+        {id, %Piece{id: id, slot: slot, display: display}}
+      end)
+
+    socket = Enum.reduce(piece_map_owned, socket, fn {_, piece}, socket ->
+      stream_insert(socket, :piece_stream, piece)
+    end)
+
+    piece_map = Map.merge(socket.assigns.piece_map, piece_map_owned)
+    board_map = Map.merge(socket.assigns.board_map, Map.new(piece_map_owned, fn {_, piece} -> {piece.slot, piece.id} end))
+
+    socket
+    |> assign(:piece_map, piece_map)
+    |> assign(:board_map, board_map)
+  end
+
+  def init_enemy_pieces(socket, session_state) do
+    if Enum.any?(socket.assigns.piece_map, fn {id, _} -> Piece.is_enemy_piece(id) end) do
+      Logger.error("Cannot init_enemy_pieces : already initialized")
+      # TODO: exit
+    end
+
+    piece_map_enemy =
+      Enum.with_index(session_state.enemy_pieces)
+      |> Map.new(fn {slot, idx} ->
+        id = "piece_9#{idx |> Integer.to_string |> String.pad_leading(2, "0")}"
+        {id, %Piece{id: id, slot: slot, display: "Empty"}}
+      end)
+
+    socket = Enum.reduce(piece_map_enemy, socket, fn {_, piece}, socket ->
+      stream_insert(socket, :piece_stream, piece)
+    end)
+
+    piece_map = Map.merge(socket.assigns.piece_map, piece_map_enemy)
+    board_map = Map.merge(socket.assigns.board_map, Map.new(piece_map_enemy, fn {_, piece} -> {piece.slot, piece.id} end))
+
+    socket
+    |> assign(:piece_map, piece_map)
+    |> assign(:board_map, board_map)
+  end
+
+  def ready(socket, place_map \\ nil) do
+    place_map = place_map || default_place()
+    case PlaySession.ready(socket.assigns.game_id, place_map) do
+      {:ok} -> socket
+      {:rejected, err} -> reject(socket)
+    end
+  end
+
+  def reject(socket) do
+    # TODO: Add message into the chat box
+    socket
+  end
+
+  defp default_place() do
+    %{
+      "slot_011" => "President",
+      "slot_012" => "General",
+      "slot_013" => "Colonel",
+      "slot_014" => "Colonel",
+      "slot_015" => "Major",
+
+      "slot_021" => "Major",
+      # "slot_022" => "Captain",
+      "slot_023" => "Captain",
+      # "slot_024" => "Lieutenant",
+      "slot_025" => "Captain",
+
+      "slot_031" => "Lieutenant",
+      "slot_032" => "Lieutenant",
+      # "slot_033" => "Corporal",
+      "slot_034" => "Sergeant",
+      "slot_035" => "Sergeant",
+
+      "slot_041" => "Sergeant",
+      # "slot_042" => "Landmine",
+      "slot_043" => "Corporal",
+      # "slot_044" => "Landmine",
+      "slot_045" => "Corporal",
+
+      "slot_051" => "Corporal",
+      "slot_052" => "Sapper",
+      "slot_053" => "Sapper",
+      "slot_054" => "Sapper",
+      "slot_055" => "Landmine",
+
+      "slot_061" => "Landmine",
+      "slot_062" => "Landmine",
+      "slot_063" => "Bomb",
+      "slot_064" => "HQ",
+      "slot_065" => "Bomb",
+    }
+  end
+
   def select_piece(socket, piece) do
-    game = socket.assigns.game
+    {attackable, selectable} = get_selectable(socket, piece)
 
-    {target_pieces, target_slots} = Game.get_selectable_targets(game, piece)
-
-    game =
-      game
-      |> Game.reset_slots()
-      # |> Game.reset_pieces_enabled()
-      |> Game.set_slots_enabled(target_slots)
-      |> Game.set_pieces_mark(target_pieces, "target")
-      |> Game.set_pieces(target_pieces, enabled: true)
-      |> Game.set_pieces_mark([piece], "selected")
+    marks = %{piece => "selected"}
+      |> Map.merge(Map.new(attackable, fn p -> {p, "target"} end))
 
     socket
     |> assign(:selected, piece)
-    |> assign(:game, game)
+    |> update_marks(marks)
   end
 
   def deselect_piece(socket) do
-    game = socket.assigns.game
-    piece = socket.assigns.selected
-
-    game =
-      game
-      |> Game.reset_slots()
-      # |> Game.reset_pieces_enabled()
-
     socket
     |> assign(:selected, nil)
-    |> assign(:game, game)
+    |> update_marks(%{})
   end
 
   def attack(socket, from_piece, to_piece) do
@@ -94,64 +235,181 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
   end
 
   def reach(socket, piece, to_slot) do
-    play_session = socket.assigns.play_session
-    game = socket.assigns.game
-    piece = Game.get_piece(game, piece)
+    game_id = socket.assigns.game_id
 
-    game = game
-    |> Game.reset_slots()
-    |> Game.set_slots_mark([piece.slot], "selected")
-    |> Game.set_slots_mark([to_slot], "target")
+    piece = get_piece(socket, piece)
 
-    game = case PlaySession.reach(play_session, piece.display, piece.slot, to_slot) do
-      :rejected ->
-        game
+    PlaySession.reach(game_id, piece.display, piece.slot, to_slot)
 
-      :ok ->
-        Logger.debug "HERE #{piece.id} #{to_slot}"
-        game
-        |> Game.set_piece_move(piece.id, to_slot)
-    end
+    marks = %{piece.slot => "selected", to_slot => "target"}
 
     socket
     |> assign(:selected, nil)
-    |> assign(:game, game)
+    |> update_marks(marks)
   end
 
-  # Called at the end of the handler
-  def updated(socket) do
-    game = socket.assigns.game
+  def handle_reach(socket, from_slot, to_slot) do
+    p = socket.assigns.board_map[from_slot]
+    socket
+    |> set_piece_move(p, to_slot)
+  end
 
-    update_list_piece =
-      socket.assigns.game.update_list_piece
-      |> List.flatten()
-      |> Enum.uniq()
-      # |> IO.inspect
+  # PUBLIC HELPER
+
+  def update_clickable(socket) do
+    {clickable_pieces, clickable_slots} = case socket.assigns.game_phase do
+      :moving ->
+        if socket.assigns.selected != nil do
+          # owned pieces, reachable slot, attackable pieces are selectable
+          {attackable, reachable} = get_selectable(socket, socket.assigns.selected)
+          {get_owned_pieces(socket) ++ attackable, reachable}
+        else
+          # owned pieces are selectable
+          {get_owned_pieces(socket), []}
+        end
+      _ ->
+        # everything should be not clickable
+        {[], []}
+    end
 
     socket =
-      Game.get_pieces(game, update_list_piece)
-      |> List.foldl(socket, fn piece, socket ->
-        stream_insert(socket, :pieces, piece)
+      socket.assigns.piece_map
+      |> Enum.reduce(socket, fn {id, p}, socket ->
+        cond do
+          id in clickable_pieces and !p.enabled ->
+            # enable p
+            socket
+            |> set_piece(id, enabled: true)
+          id not in clickable_pieces and p.enabled ->
+            # disable p
+            socket
+            |> set_piece(id, enabled: false)
+          true ->
+            socket
+        end
       end)
-
-    update_list_slot =
-      socket.assigns.game.update_list_slot
-      |> List.flatten()
-      |> Enum.uniq()
-      # |> IO.inspect
 
     socket =
-      Game.get_slots(game, update_list_slot)
-      |> List.foldl(socket, fn slot, socket ->
-        stream_insert(socket, :slots, slot)
+      socket.assigns.slot_map
+      |> Enum.reduce(socket, fn {id, s}, socket ->
+        cond do
+          id in clickable_slots and !s.enabled ->
+            # enable p
+            socket
+            |> set_slot(id, enabled: true)
+          id not in clickable_slots and s.enabled ->
+            # disable p
+            socket
+            |> set_slot(id, enabled: false)
+          true ->
+            socket
+        end
       end)
+  end
 
-    game =
-      game
-      |> Map.put(:update_list_piece, [])
-      |> Map.put(:update_list_slot, [])
+  # marks = %{"slot_xxx" => "mark"}
+  def update_marks(socket, marks) do
+    # preprocess marks in case keys are pieces
+    piece_marks =
+      marks
+      |> Enum.filter(fn {k, _v} -> Piece.is_valid_piece(k) end)
+      |> Enum.map(fn {k, v} -> {get_piece(socket, k).slot, v} end)
+      |> Map.new()
+
+    marks = Map.merge(marks, piece_marks)
+
+    socket.assigns.slot_map
+    |> Enum.reduce(socket, fn {sid, slot}, socket ->
+      if marks[sid] != slot.mark do
+        socket
+        |> set_slot(sid, mark: marks[sid])
+      else
+        socket
+      end
+    end)
+  end
+
+  # HELPERS
+
+  defp get_owned_pieces(socket) do
+    socket.assigns.piece_map
+    |> Enum.filter(fn {id, _} -> Piece.is_owned_piece(id) end)
+    |> Enum.map(fn {id, _} -> id end)
+  end
+
+  # return {attackable, reachable}
+  def get_selectable(socket, piece) do
+    board_map = socket.assigns.board_map
+
+    piece = get_piece(socket, piece)
+
+    paths = if piece.display == "Sapper" do
+        Armychess.Entity.Slot.reachable_map_sapper(piece.slot)
+      else
+        Armychess.Entity.Slot.reachable_map(piece.slot)
+      end
+
+    result_list = for path <- paths do
+      Enum.reduce_while(path |> List.delete_at(0), {[], []}, fn s, {pieces, slots} ->
+        p = Map.get(board_map, s)
+        cond do
+          p == nil ->
+            {:cont, {pieces, [s | slots]}}
+          Piece.is_enemy_piece(p) ->
+            {:halt, {[p | pieces], slots}}
+          true ->
+            {:halt, {pieces, slots}}
+        end
+      end)
+    end
+
+    pieces = Enum.map(result_list, fn {p, _s} -> p end) |> List.flatten() |> Enum.uniq()
+    slots =  Enum.map(result_list, fn {_p, s} -> s end) |> List.flatten() |> Enum.uniq()
+    {pieces, slots}
+  end
+
+  # HELPER HELPER
+
+  defp set_piece_move(socket, piece, to_slot) do
+    p = get_piece(socket, piece)
+    from_slot = p.slot
 
     socket
-    |> assign(:game, game)
+    |> set_piece(piece, slot: to_slot)
+    |> set_board(from_slot, nil)
+    |> set_board(to_slot, piece)
+  end
+
+  defp set_board(socket, slot, p) do
+    new_board = if p == nil do
+      Map.delete(socket.assigns.board_map, slot)
+    else
+      Map.put(socket.assigns.board_map, slot, p)
+    end
+
+    socket
+    |> assign(:board_map, new_board)
+  end
+
+  defp get_piece(socket, piece) do
+    socket.assigns.piece_map[piece]
+  end
+
+  defp set_piece(socket, piece, changeset \\ %{}) do
+    p = get_piece(socket, piece) |> struct(changeset)
+    socket
+    |> put_in([Access.key(:assigns), Access.key(:piece_map), piece], p)
+    |> stream_insert(:piece_stream, p)
+  end
+
+  defp get_slot(socket, slot) do
+    socket.assigns.slot_map[slot]
+  end
+
+  defp set_slot(socket, slot, changeset \\ %{}) do
+    s = get_slot(socket, slot) |> struct(changeset)
+    socket
+    |> put_in([Access.key(:assigns), Access.key(:slot_map), slot], s)
+    |> stream_insert(:slot_stream, s)
   end
 end

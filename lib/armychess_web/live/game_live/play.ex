@@ -1,5 +1,6 @@
 defmodule ArmychessWeb.GameLive.Play do
   use ArmychessWeb, :live_view
+  import Phoenix.LiveView, only: [connected?: 1, stream: 3, stream_insert: 3]
 
   alias ArmychessWeb.GameLive.Models.Game
   alias ArmychessWeb.GameLive.Models.Piece
@@ -9,6 +10,26 @@ defmodule ArmychessWeb.GameLive.Play do
 
   require Logger
 
+  @moduledoc """
+  The socket stores the following information
+
+  - game_id
+  - player_side
+  - slot_map (update via slot_stream)
+    Defines which slot is clickable or has the highlight border
+
+  - game_phase
+    :connecting, :placing, :wait_placing, :moving, :wait_moving, :game_win, :game_lose
+  - piece_map (update via piece_stream)
+    Defines the pieces on the board, including slots and status
+  - board_map
+    A lookup map to faciliate finding piece on a particular slot
+
+  - selected
+    A temporary to store the last selected element
+    Value can be `nil`, `{:piece, "piece_xxx"}`
+  """
+
   def mount(params, _session, socket) do
     game_id = params["game_id"]
     player_side = params["player_side"]
@@ -16,17 +37,19 @@ defmodule ArmychessWeb.GameLive.Play do
     socket = socket
     |> assign(:game_id, game_id)
     |> assign(:player_side, player_side)
-    |> assign(:loading, true)
+    |> Action.init_slot()
+    |> assign(:game_phase, :connecting)
+    |> assign(:piece_map, %{})
+    |> stream(:piece_stream, [])
+    |> assign(:board_map, %{})
+    |> assign(:selected, nil)
 
     if connected?(socket) do
-      {:ok, game_init} = Armychess.Server.PlaySession.join(game_id, player_side)
+      {:ok, session_state} = Armychess.Server.PlaySession.join(game_id, player_side)
 
       socket = socket
-      |> Action.mount_game(game_init)
-      |> Mount.mount_stream_pieces()
-      |> Mount.mount_stream_slots()
-      |> Mount.mount_selected()
-      |> assign(:loading, false)
+      |> Action.init_game_state(session_state)
+      |> Action.update_clickable()
 
       {:ok, socket}
     else
@@ -34,9 +57,44 @@ defmodule ArmychessWeb.GameLive.Play do
     end
   end
 
-  def handle_info({:disconnected}, socket) do
-    # {:noreply, push_navigate(socket, to: "/games/#{socket.assigns.game_id}")}
-    {:noreply, socket |> assign(:loading, true)}
+  def handle_info([:player_ready, player_side], socket) do
+    Logger.debug("handle_info player_ready(#{player_side})")
+
+    socket =
+      if player_side == socket.assigns.player_side do
+        socket
+      else
+        session_state = Armychess.Server.PlaySession.session_state(socket.assigns.game_id, player_side)
+
+        socket
+        |> Action.init_enemy_pieces(session_state)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info([:player_reach, player_side, from_slot, to_slot], socket) do
+    Logger.debug("handle_info(#{socket.assigns.player_side}) player_reach(#{player_side}) #{from_slot} -> #{to_slot}")
+
+    {:ok, session_state} = Armychess.Server.PlaySession.get_state(socket.assigns.game_id)
+
+    socket =
+      socket
+      |> Action.handle_reach(from_slot, to_slot)
+      |> Action.assign_game_phase(session_state)
+      |> Action.update_clickable()
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:player_attack, player_side, from_slot, to_slot, attack_result}, socket) do
+    Logger.debug("handle_info player_reach(#{player_side}) #{from_slot} -> #{to_slot} = #{attack_result}")
+    {:noreply, socket}
+  end
+
+  def handle_info(msg, socket) do
+    Logger.info(inspect(msg))
+    {:noreply, socket}
   end
 
   def handle_event("click-chess", %{"id" => piece} = value, socket) do
@@ -64,7 +122,7 @@ defmodule ArmychessWeb.GameLive.Play do
         Logger.error("Unhandled Event: click-chess #{piece}; Reason: Unexpected case.")
         socket
     end
-    |> Action.updated()
+    |> Action.update_clickable()
 
     {:noreply, socket}
   end
@@ -78,7 +136,7 @@ defmodule ArmychessWeb.GameLive.Play do
         socket
       # case 1: There is a selected piece
       socket.assigns.selected != nil
-          and Game.get_selectable_targets(socket.assigns.game, socket.assigns.selected) |> elem(1) |> Enum.member?(slot_id) ->
+          and Action.get_selectable(socket, socket.assigns.selected) |> elem(1) |> Enum.member?(slot_id) ->
         socket
         |> Action.reach(socket.assigns.selected, slot_id)
       # Unexpected Cases
@@ -86,7 +144,7 @@ defmodule ArmychessWeb.GameLive.Play do
         Logger.error("Unhandled Event: click-slot #{slot_id}; Reason: Unexpected case.")
         socket
     end
-    |> Action.updated()
+    |> Action.update_clickable()
 
     {:noreply, socket}
   end
