@@ -1,6 +1,6 @@
 defmodule ArmychessWeb.GameLive.Functions.Action do
   import Phoenix.Component, only: [assign: 3]
-  import Phoenix.LiveView, only: [stream: 3, stream_insert: 3]
+  import Phoenix.LiveView, only: [stream: 3]
 
   alias ArmychessWeb.GameLive.Models.Game
   alias ArmychessWeb.GameLive.Models.Slot
@@ -92,7 +92,7 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
       end)
 
     socket = Enum.reduce(piece_map_owned, socket, fn {_, piece}, socket ->
-      stream_insert(socket, :piece_stream, piece)
+      set_stream_changes(socket, piece.id)
     end)
 
     piece_map = Map.merge(socket.assigns.piece_map, piece_map_owned)
@@ -117,7 +117,7 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
       end)
 
     socket = Enum.reduce(piece_map_enemy, socket, fn {_, piece}, socket ->
-      stream_insert(socket, :piece_stream, piece)
+      set_stream_changes(socket, piece.id)
     end)
 
     piece_map = Map.merge(socket.assigns.piece_map, piece_map_enemy)
@@ -391,25 +391,32 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
     |> assign(:board_map, new_board)
   end
 
-  defp get_piece(socket, piece) do
+  def get_piece(socket, piece) do
     socket.assigns.piece_map[piece]
   end
 
   defp set_piece(socket, piece, changeset \\ %{}) do
     p = get_piece(socket, piece) |> struct(changeset)
+    # Logger.warning("SET PIECE #{piece} #{inspect p} #{inspect changeset}")
     socket
     |> put_in([Access.key(:assigns), Access.key(:piece_map), piece], p)
-    |> stream_insert(:piece_stream, p)
+    |> set_stream_changes(piece)
   end
 
-  defp get_slot(socket, slot) do
+  def get_slot(socket, slot) do
     socket.assigns.slot_map[slot]
   end
 
   defp set_slot(socket, slot, changeset \\ %{}) do
     s = get_slot(socket, slot) |> struct(changeset)
+    # Logger.warning("SET SLOT #{slot} #{inspect s} #{inspect changeset}")
     socket
     |> put_in([Access.key(:assigns), Access.key(:slot_map), slot], s)
-    |> stream_insert(:slot_stream, s)
+    |> set_stream_changes(slot)
+  end
+
+  defp set_stream_changes(socket, id) do
+    socket
+    |> assign(:stream_changes, [id | socket.assigns.stream_changes])
   end
 end

@@ -6,6 +6,6 @@ defmodule ArmychessWeb.GameLive.Models.Slot do
   ]
 
   def is_valid_slot(slot) do
-    slot != nil
+    slot != nil and String.starts_with?(slot, "slot_")
   end
 end

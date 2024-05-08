@@ -177,7 +177,7 @@ defmodule Armychess.Server.PlaySession do
             {:reply, {:rejected, err}, state}
         end
       _ ->
-        {:reply, {:rejected, "Player is invalid"}, state}
+        {:reply, {:rejected, "Player is invalid : #{inspect pid} in #{inspect state.connected}"}, state}
     end
   end
 
@@ -197,7 +197,7 @@ defmodule Armychess.Server.PlaySession do
             {:reply, {:rejected, err}, state}
         end
       _ ->
-        {:reply, {:rejected, "Player is invalid"}, state}
+        {:reply, {:rejected, "Player is invalid : #{inspect pid} in #{inspect state.connected}"}, state}
     end
   end
 
@@ -217,7 +217,7 @@ defmodule Armychess.Server.PlaySession do
             {:reply, {:rejected, err}, state}
         end
       _ ->
-        {:reply, {:rejected, "Player is invalid"}, state}
+        {:reply, {:rejected, "Player is invalid : #{inspect pid} in #{inspect state.connected}"}, state}
     end
   end
 
@@ -227,7 +227,7 @@ defmodule Armychess.Server.PlaySession do
         session_state = calc_session_state(player_side, state)
         {:reply, {:ok, session_state}, state}
       _ ->
-        {:reply, {:rejected, "Player is invalid"}, state}
+        {:reply, {:rejected, "Player is invalid : #{inspect pid} in #{inspect state.connected}"}, state}
     end
   end
 

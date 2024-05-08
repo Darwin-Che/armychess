@@ -28,6 +28,9 @@ defmodule ArmychessWeb.GameLive.Play do
   - selected
     A temporary to store the last selected element
     Value can be `nil`, `{:piece, "piece_xxx"}`
+
+  - stream_changes
+    A temporary to store the changed elements, so that we don't stream_insert one object multiple times
   """
 
   def mount(params, _session, socket) do
@@ -43,6 +46,7 @@ defmodule ArmychessWeb.GameLive.Play do
     |> stream(:piece_stream, [])
     |> assign(:board_map, %{})
     |> assign(:selected, nil)
+    |> assign(:stream_changes, [])
 
     if connected?(socket) do
       {:ok, session_state} = Armychess.Server.PlaySession.join(game_id, player_side)
@@ -50,6 +54,7 @@ defmodule ArmychessWeb.GameLive.Play do
       socket = socket
       |> Action.init_game_state(session_state)
       |> Action.update_clickable()
+      |> stream_changes()
 
       {:ok, socket}
     else
@@ -57,6 +62,7 @@ defmodule ArmychessWeb.GameLive.Play do
     end
   end
 
+  @spec handle_info(any(), any()) :: {:noreply, any()}
   def handle_info([:player_ready, player_side], socket) do
     Logger.debug("handle_info player_ready(#{player_side})")
 
@@ -82,7 +88,9 @@ defmodule ArmychessWeb.GameLive.Play do
       socket
       |> Action.handle_reach(from_slot, to_slot)
       |> Action.assign_game_phase(session_state)
+      |> Action.update_marks(%{from_slot => "selected", to_slot => "target"})
       |> Action.update_clickable()
+      |> stream_changes()
 
     {:noreply, socket}
   end
@@ -123,6 +131,7 @@ defmodule ArmychessWeb.GameLive.Play do
         socket
     end
     |> Action.update_clickable()
+    |> stream_changes()
 
     {:noreply, socket}
   end
@@ -145,8 +154,27 @@ defmodule ArmychessWeb.GameLive.Play do
         socket
     end
     |> Action.update_clickable()
+    |> stream_changes()
 
     {:noreply, socket}
+  end
+
+  def stream_changes(socket) do
+    socket.assigns.stream_changes
+    |> List.flatten()
+    |> Enum.uniq()
+    |> Enum.reduce(socket, fn id, socket ->
+      cond do
+        Piece.is_valid_piece(id) ->
+          socket |> stream_insert(:piece_stream, Action.get_piece(socket, id))
+        Slot.is_valid_slot(id) ->
+          socket |> stream_insert(:slot_stream, Action.get_slot(socket, id))
+        true ->
+          Logger.error("Cannot stream changes #{id}")
+          socket
+      end
+    end)
+    |> assign(:stream_changes, [])
   end
 
 end
