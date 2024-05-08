@@ -199,39 +199,18 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
   end
 
   def attack(socket, from_piece, to_piece) do
-    play_session = socket.assigns.play_session
-    game = socket.assigns.game
+    game_id = socket.assigns.game_id
 
-    from_piece = Game.get_piece(game, from_piece)
-    to_piece = Game.get_piece(game, to_piece)
+    from_piece = get_piece(socket, from_piece)
+    to_piece = get_piece(socket, to_piece)
 
-    game = game
-    |> Game.reset_slots()
-    |> Game.set_pieces_mark([from_piece.id], "selected")
-    |> Game.set_pieces_mark([to_piece.id], "target")
+    PlaySession.attack(game_id, from_piece.display, from_piece.slot, to_piece.slot)
 
-    game = case PlaySession.attack(play_session, from_piece.display, from_piece.slot, to_piece.slot) do
-      :rejected ->
-        game
-
-      :win ->
-        game
-        |> Game.set_piece_move(to_piece.id, nil)
-        |> Game.set_piece_move(from_piece.id, to_piece.slot)
-
-      :lose ->
-        game
-        |> Game.set_piece_move(from_piece.id, nil)
-
-      :draw ->
-        game
-        |> Game.set_piece_move(from_piece.id, nil)
-        |> Game.set_piece_move(to_piece.id, nil)
-    end
+    marks = %{from_piece.slot => "selected", to_piece.slot => "target"}
 
     socket
     |> assign(:selected, nil)
-    |> assign(:game, game)
+    |> update_marks(marks)
   end
 
   def reach(socket, piece, to_slot) do
@@ -252,6 +231,27 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
     p = socket.assigns.board_map[from_slot]
     socket
     |> set_piece_move(p, to_slot)
+  end
+
+  def handle_attack(socket, from_slot, to_slot, attack_result) do
+    from_piece = socket.assigns.board_map[from_slot]
+    to_piece = socket.assigns.board_map[to_slot]
+
+    socket = case attack_result do
+      :win ->
+        socket
+        |> set_piece_move(to_piece, nil)
+        |> set_piece_move(from_piece, to_slot)
+      :lose ->
+        socket
+        |> set_piece_move(from_piece, nil)
+      :draw ->
+        socket
+        |> set_piece_move(from_piece, nil)
+        |> set_piece_move(to_piece, nil)
+    end
+
+    socket
   end
 
   # PUBLIC HELPER

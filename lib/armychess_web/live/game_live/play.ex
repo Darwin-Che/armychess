@@ -95,8 +95,19 @@ defmodule ArmychessWeb.GameLive.Play do
     {:noreply, socket}
   end
 
-  def handle_info({:player_attack, player_side, from_slot, to_slot, attack_result}, socket) do
-    Logger.debug("handle_info player_reach(#{player_side}) #{from_slot} -> #{to_slot} = #{attack_result}")
+  def handle_info([:player_attack, player_side, from_slot, to_slot, attack_result], socket) do
+    Logger.debug("handle_info(#{socket.assigns.player_side}) player_attack(#{player_side}) #{from_slot} -> #{to_slot} = #{attack_result}")
+
+    {:ok, session_state} = Armychess.Server.PlaySession.get_state(socket.assigns.game_id)
+
+    socket =
+      socket
+      |> Action.handle_attack(from_slot, to_slot, attack_result)
+      |> Action.assign_game_phase(session_state)
+      |> Action.update_marks(%{from_slot => "selected", to_slot => "target"})
+      |> Action.update_clickable()
+      |> stream_changes()
+
     {:noreply, socket}
   end
 

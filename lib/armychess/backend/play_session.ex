@@ -211,7 +211,7 @@ defmodule Armychess.Server.PlaySession do
         case handle_event("player_attack", msg, state) do
           {:ok, new_state, attack_result} ->
             :ok = spear_send("player_attack", msg, new_state)
-            publish({:player_attack, player_side, from_slot, to_slot, attack_result}, state)
+            publish([:player_attack, player_side, from_slot, to_slot, attack_result], state)
             {:reply, {:ok, attack_result}, new_state}
           {:error, err} ->
             {:reply, {:rejected, err}, state}
@@ -361,7 +361,7 @@ defmodule Armychess.Server.PlaySession do
         state = struct(state, connected: connected)
 
         # :ok = spear_send("player_left", %{player_side: player_side}, state)
-        publish({{:player_left, player_side}}, state)
+        publish([:player_left, player_side], state)
 
         {:noreply, state}
     end
@@ -386,7 +386,6 @@ defmodule Armychess.Server.PlaySession do
           end
         end)
       send(view_pid, player_msg)
-      |> IO.inspect
     end
   end
 
