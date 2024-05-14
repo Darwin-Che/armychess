@@ -4,9 +4,51 @@
 
 /* This file is for your main application CSS */
 
-body {
-  height:100%;
-} 
+/* body {
+  height: 100vh;
+  margin: 0;
+} */
+
+.play_ui {
+  position: absolute;
+  /* width: 100%; */
+  /* min-height: 100vh; */
+  height: 100%;
+  top: 0;
+
+  display: grid;
+  place-items: center;
+  /* width: 50%; */
+}
+
+.board_ui {
+  display: flex;
+  position: relative;
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.side_panel {
+  display: flex;
+  position: relative;
+  grid-row: 1;
+  grid-column: 2; 
+}
+
+[id^=placebtn] {
+  background-size: cover;
+  background-position: center center;
+  object-fit: fill;
+
+  width: 100px;
+  height: 50px;
+
+  background-color: lightcyan;
+}
+
+.placebtn_selected {
+  background-color: lightgreen;
+}
 
 /* CHESS PIECES */
 
@@ -17,8 +59,8 @@ body {
   object-fit: fill;
 
   position: absolute;
-  width: 13%;
-  height: 4.5%;
+  width: 100px;
+  height: 50px;
 
   /* border: 2px solid black; */
 }
@@ -52,8 +94,8 @@ body {
   object-fit: cover;
 
   position: absolute;
-  width: 10%;
-  height: 3.5%;
+  width: 70px;
+  height: 35px;
   border-radius: 10%;
   background-color: white;
   text-align: center;
@@ -73,8 +115,8 @@ body {
   object-fit: cover;
 
   position: absolute;
-  width: 14.2%;
-  height: 5.3%;
+  width: 108px;
+  height: 58px;
   background-color: transparent;
   text-align: center;
 }

@@ -1,18 +1,20 @@
 defmodule Armychess.Entity.Piece do
-  @names [
-    "Landmine",
-    "President",
-    "General",
-    "Colonel",
-    "Major",
-    "Captain",
-    "Lieutenant",
-    "Sergeant",
-    "Corporal",
-    "Sapper",
-    "Bomb",
-    "HQ",
+  @pieces [
+    {"Landmine", 3},
+    {"President", 1},
+    {"General", 1},
+    {"Colonel", 2},
+    {"Major", 2},
+    {"Captain", 2},
+    {"Lieutenant", 2},
+    {"Sergeant", 3},
+    {"Corporal", 3},
+    {"Sapper", 3},
+    {"Bomb", 2},
+    {"HQ", 1},
   ]
+
+  @names @pieces |> Enum.map(fn {name, _} -> name end)
 
   @rank_map @names |> Enum.with_index(fn name, idx -> {name, idx} end) |> Map.new()
 
@@ -37,6 +39,43 @@ defmodule Armychess.Entity.Piece do
     end
   end
 
+  def available_list() do
+    [
+      {"HQ", 1},
+      {"Landmine", 3},
+      {"Bomb", 2},
+      {"President", 1},
+      {"General", 1},
+      {"Colonel", 2},
+      {"Major", 2},
+      {"Captain", 2},
+      {"Lieutenant", 2},
+      {"Sergeant", 3},
+      {"Corporal", 3},
+      {"Sapper", 3},
+    ]
+  end
+
+  def placeable_slots("HQ") do
+    ["slot_062", "slot_064"]
+  end
+
+  def placeable_slots("Landmine") do
+    for r <- (5..6), c <- (1..5) do
+      "slot_0#{r}#{c}"
+    end
+  end
+
+  def placeable_slots(_) do
+    for r <- (1..6), c <- (1..5) do
+      "slot_0#{r}#{c}"
+    end
+    |> List.delete("slot_022")
+    |> List.delete("slot_024")
+    |> List.delete("slot_033")
+    |> List.delete("slot_042")
+    |> List.delete("slot_044")
+  end
 end
 # HQ         * 1
 # President  * 1

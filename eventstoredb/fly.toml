@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for eventstoredb on 2024-04-29T18:32:57-04:00
+# fly.toml app configuration file generated for armychess-esdb on 2024-05-14T00:29:36-04:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'eventstoredb'
+app = 'armychess-esdb'
 primary_region = 'ewr'
 
 [build]
@@ -11,17 +11,19 @@ primary_region = 'ewr'
 
 [env]
   EVENTSTORE_CLUSTER_SIZE = '1'
-  EVENTSTORE_RUN_PROJECTIONS = 'All'
-  EVENTSTORE_START_STANDARD_PROJECTIONS = 'true'
+  EVENTSTORE_DB = '/esdb/db'
+  EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP = 'true'
   EVENTSTORE_HTTP_PORT = '2113'
   EVENTSTORE_INSECURE = 'true'
-  EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP = 'true'
+  EVENTSTORE_LOG = '/esdb/log'
+  EVENTSTORE_RUN_PROJECTIONS = 'All'
+  EVENTSTORE_START_STANDARD_PROJECTIONS = 'true'
+
+[[mounts]]
+  source = 'armychess_esdb_data'
+  destination = '/esdb'
 
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
-
-[mounts]
-  source = "myapp_data"
-  destination = "/data"

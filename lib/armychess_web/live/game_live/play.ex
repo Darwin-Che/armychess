@@ -1,6 +1,8 @@
 defmodule ArmychessWeb.GameLive.Play do
   use ArmychessWeb, :live_view
-  import Phoenix.LiveView, only: [connected?: 1, stream: 3, stream_insert: 3]
+  import Phoenix.LiveView, only: [connected?: 1, stream: 3, stream_insert: 3, stream_delete_by_dom_id: 3, push_navigate: 2]
+
+  # import ArmychessWeb.Components.Placebtn, only: [placebtn: 1]
 
   alias ArmychessWeb.GameLive.Models.Game
   alias ArmychessWeb.GameLive.Models.Piece
@@ -31,6 +33,9 @@ defmodule ArmychessWeb.GameLive.Play do
 
   - stream_changes
     A temporary to store the changed elements, so that we don't stream_insert one object multiple times
+
+  - placebtn_cnt
+    %{"President" => 1}
   """
 
   def mount(params, _session, socket) do
@@ -47,14 +52,21 @@ defmodule ArmychessWeb.GameLive.Play do
     |> assign(:board_map, %{})
     |> assign(:selected, nil)
     |> assign(:stream_changes, [])
+    |> assign(:placebtn_selected, nil)
+    |> assign(:placebtn_cnt, Armychess.Entity.Piece.available_list() |> Map.new())
 
     if connected?(socket) do
-      {:ok, session_state} = Armychess.Server.PlaySession.join(game_id, player_side)
+      socket = case Armychess.Server.PlaySession.join(game_id, player_side) do
+        {:ok, session_state} ->
+          socket
+          |> Action.init_game_state(session_state)
+          |> Action.update_clickable()
+          |> stream_changes()
 
-      socket = socket
-      |> Action.init_game_state(session_state)
-      |> Action.update_clickable()
-      |> stream_changes()
+        _ ->
+          socket
+          |> push_navigate(to: "/games/#{game_id}")
+      end
 
       {:ok, socket}
     else
@@ -66,15 +78,18 @@ defmodule ArmychessWeb.GameLive.Play do
   def handle_info([:player_ready, player_side], socket) do
     Logger.debug("handle_info player_ready(#{player_side})")
 
+    {:ok, session_state} = Armychess.Server.PlaySession.get_state(socket.assigns.game_id)
+
     socket =
       if player_side == socket.assigns.player_side do
         socket
       else
-        session_state = Armychess.Server.PlaySession.session_state(socket.assigns.game_id, player_side)
-
         socket
         |> Action.init_enemy_pieces(session_state)
       end
+      |> Action.assign_game_phase(session_state)
+      |> Action.update_clickable()
+      |> stream_changes()
 
     {:noreply, socket}
   end
@@ -116,29 +131,33 @@ defmodule ArmychessWeb.GameLive.Play do
     {:noreply, socket}
   end
 
-  def handle_event("click-chess", %{"id" => piece} = value, socket) do
-    Logger.info("handle_event click-chess #{piece}")
+  def handle_event("click-chess", %{"id" => piece_id} = value, socket) do
+    Logger.info("handle_event click-chess #{piece_id}")
 
     socket = cond do
       # case 0: Fail
-      !Piece.is_valid_piece(piece) ->
-        Logger.error("Unhandled Event: click-chess #{piece}; Reason: Invalid clicked_piece.")
+      !Piece.is_valid_piece(piece_id) ->
+        Logger.error("Unhandled Event: click-chess #{piece_id}; Reason: Invalid clicked_piece.")
         socket
       # case 1: selected a reachable enemy piece, start an attack
-      socket.assigns.selected != nil && Piece.is_enemy_piece(piece) ->
+      socket.assigns.game_phase == :moving and socket.assigns.selected != nil && Piece.is_enemy_piece(piece_id) ->
         socket
-        |> Action.attack(socket.assigns.selected, piece)
+        |> Action.attack(socket.assigns.selected, piece_id)
       # case 2: selected a selected piece, deselect it
-      socket.assigns.selected == piece ->
+      socket.assigns.game_phase == :moving and socket.assigns.selected == piece_id ->
         socket
         |> Action.deselect_piece()
       # case 3: selected a owned piece, assign it to selected
-      Piece.is_owned_piece(piece) ->
+      socket.assigns.game_phase == :moving and Piece.is_owned_piece(piece_id) ->
         socket
-        |> Action.select_piece(piece)
+        |> Action.select_piece(piece_id)
+      # case 4: when placing, clicking on an existing piece means unplace it
+      socket.assigns.game_phase == :placing ->
+        socket
+        |> Action.unplace(piece_id)
       # Unexpected Cases
       true ->
-        Logger.error("Unhandled Event: click-chess #{piece}; Reason: Unexpected case.")
+        Logger.error("Unhandled Event: click-chess #{piece_id}; Reason: Unexpected case.")
         socket
     end
     |> Action.update_clickable()
@@ -155,13 +174,79 @@ defmodule ArmychessWeb.GameLive.Play do
         Logger.error("Unhandled Event: click-slot #{slot_id}; Reason: Invalid slot.")
         socket
       # case 1: There is a selected piece
-      socket.assigns.selected != nil
-          and Action.get_selectable(socket, socket.assigns.selected) |> elem(1) |> Enum.member?(slot_id) ->
+      socket.assigns.game_phase == :moving and socket.assigns.selected != nil
+          and Action.get_reachable(socket, socket.assigns.selected) |> elem(1) |> Enum.member?(slot_id) ->
         socket
         |> Action.reach(socket.assigns.selected, slot_id)
+      # case 2: Placing on this slot
+      socket.assigns.game_phase == :placing and socket.assigns.placebtn_selected != nil
+          and Action.get_placeable(socket, socket.assigns.placebtn_selected) |> Enum.member?(slot_id) ->
+        socket
+        |> Action.place(socket.assigns.placebtn_selected, slot_id)
       # Unexpected Cases
       true ->
         Logger.error("Unhandled Event: click-slot #{slot_id}; Reason: Unexpected case.")
+        socket
+    end
+    |> Action.update_clickable()
+    |> stream_changes()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("click-placebtn", %{"id" => p} = value, socket) do
+    Logger.info("handle_event click-placebtn #{p}")
+    socket = cond do
+      # case 1: Unselect the selected
+      socket.assigns.game_phase == :placing and socket.assigns.placebtn_selected == p ->
+        socket
+        |> assign(:placebtn_selected, nil)
+      # case 2: Selected the clicked
+      socket.assigns.game_phase == :placing and socket.assigns.placebtn_cnt[p] > 0 ->
+        socket
+        |> assign(:placebtn_selected, p)
+      true ->
+        Logger.error("Unhandled Event: click-placebtn #{p}; Reason: Unexpected case.")
+        socket
+    end
+    |> Action.update_clickable()
+    |> stream_changes()
+    {:noreply, socket}
+  end
+
+  def handle_event("click-placebtn-ready", _, socket) do
+    Logger.info("handle_event click-placebtn-ready")
+
+    socket = cond do
+      # check if every piece is placed
+      socket.assigns.game_phase == :placing and socket.assigns.placebtn_cnt |> Map.values() |> Enum.all?(&(&1 == 0)) ->
+        socket
+        |> assign(:placebtn_selected, nil)
+        |> Action.ready(
+          socket.assigns.piece_map
+          |> Enum.filter(fn {piece_id, _} -> Piece.is_owned_piece(piece_id) end)
+          |> Map.new(fn {_, p} -> {p.slot, p.display} end)
+          )
+      true ->
+        Logger.error("Unhandled Event: click-placebtn-ready; Reason: Not all pieces are placed.")
+        socket
+    end
+    |> Action.update_clickable()
+    |> stream_changes()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("click-placebtn-preset", _, socket) do
+    Logger.info("handle_event click-placebtn-ready")
+
+    socket = cond do
+      # load the rest of pieces randomly on to the board
+      socket.assigns.game_phase == :placing ->
+        socket
+        |> Action.place_preset()
+      true ->
+        Logger.error("Unhandled Event: click-placebtn-ready; Reason: Not all pieces are placed.")
         socket
     end
     |> Action.update_clickable()
@@ -177,7 +262,12 @@ defmodule ArmychessWeb.GameLive.Play do
     |> Enum.reduce(socket, fn id, socket ->
       cond do
         Piece.is_valid_piece(id) ->
-          socket |> stream_insert(:piece_stream, Action.get_piece(socket, id))
+          piece = Action.get_piece(socket, id)
+          if piece do
+            socket |> stream_insert(:piece_stream, piece)
+          else
+            socket |> stream_delete_by_dom_id(:piece_stream, id)
+          end
         Slot.is_valid_slot(id) ->
           socket |> stream_insert(:slot_stream, Action.get_slot(socket, id))
         true ->

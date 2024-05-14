@@ -112,6 +112,27 @@ defmodule Armychess.Entity.SlotMeta do
     |> Map.new()
   end
 
+  # %{"slot_0xx" => [["slot_0xx", "slot_0yy", "slot_0aa"], []]}
+  def reachable_map_convert_to_abs(reachable_map) do
+    # simple convert all 0 to 1 and 0 to 2
+    reachable_map
+    |> Map.new(fn {src, paths} ->
+      {
+        src |> convert_to_abs(),
+        paths
+        |> Enum.map(fn path ->
+          path |> Enum.map(&convert_to_abs/1)
+        end)
+      }
+    end)
+  end
+
+  defp convert_to_abs(slot) do
+    slot
+    |> String.replace("_0", "_1")
+    |> String.replace("_9", "_2")
+  end
+
   defp same_direction(prev_slot, _slot, next_slot) do
     prev_slot_s = prev_slot |> String.at(-3)
     prev_slot_r = prev_slot |> String.at(-2)

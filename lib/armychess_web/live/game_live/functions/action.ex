@@ -41,7 +41,6 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
         socket
         |> init_owned_pieces(session_state)
         |> init_enemy_pieces(session_state)
-        |> ready()
 
       _ ->
         # TODO: Verify the board from session_state with the current state
@@ -136,6 +135,55 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
     end
   end
 
+  def place(socket, p, slot_id) do
+    if socket.assigns.placebtn_cnt[p] > 0 do
+      piece_id = slot_id |> String.replace("slot_", "piece_")
+      piece = %Piece{id: piece_id, display: p, slot: slot_id}
+      board_map = Map.put(socket.assigns.board_map, slot_id, piece_id)
+      socket = socket
+      |> insert_piece(piece)
+      |> assign(:board_map, board_map)
+      |> assign(:placebtn_cnt, socket.assigns.placebtn_cnt |> update_in([p], &(&1 - 1)))
+      if socket.assigns.placebtn_cnt[p] == 0 do
+        socket
+        |> assign(:placebtn_selected, nil)
+      else
+        socket
+      end
+    else
+      socket
+    end
+  end
+
+  def place_preset(socket) do
+    pieces =
+      Armychess.Entity.Piece.available_list()
+      |> Enum.map(&(&1 |> elem(0)))
+      |> Enum.map(&(List.duplicate(&1, socket.assigns.placebtn_cnt[&1] || 0)))
+      |> List.flatten()
+
+    Enum.reduce(pieces, socket, fn p, socket ->
+      placeable_slots = get_placeable(socket, p)
+      if placeable_slots == [] do
+        socket
+      else
+        socket
+        |> place(p, Enum.random(placeable_slots))
+      end
+    end)
+  end
+
+  def unplace(socket, piece_id) do
+    piece = get_piece(socket, piece_id)
+
+    board_map = Map.delete(socket.assigns.board_map, piece.slot)
+
+    socket
+    |> delete_piece(piece_id)
+    |> assign(:board_map, board_map)
+    |> assign(:placebtn_cnt, socket.assigns.placebtn_cnt |> update_in([piece.display], &(&1 + 1)))
+  end
+
   def reject(socket) do
     # TODO: Add message into the chat box
     socket
@@ -181,14 +229,14 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
     }
   end
 
-  def select_piece(socket, piece) do
-    {attackable, selectable} = get_selectable(socket, piece)
+  def select_piece(socket, piece_id) do
+    {attackable, selectable} = get_reachable(socket, piece_id)
 
-    marks = %{piece => "selected"}
+    marks = %{piece_id => "selected"}
       |> Map.merge(Map.new(attackable, fn p -> {p, "target"} end))
 
     socket
-    |> assign(:selected, piece)
+    |> assign(:selected, piece_id)
     |> update_marks(marks)
   end
 
@@ -261,12 +309,20 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
       :moving ->
         if socket.assigns.selected != nil do
           # owned pieces, reachable slot, attackable pieces are selectable
-          {attackable, reachable} = get_selectable(socket, socket.assigns.selected)
+          {attackable, reachable} = get_reachable(socket, socket.assigns.selected)
           {get_owned_pieces(socket) ++ attackable, reachable}
         else
           # owned pieces are selectable
           {get_owned_pieces(socket), []}
         end
+      :placing ->
+        clickable_slots = if socket.assigns.placebtn_selected != nil do
+          get_placeable(socket, socket.assigns.placebtn_selected)
+        else
+          []
+        end
+        clickable_pieces = socket.assigns.board_map |> Map.values()
+        {clickable_pieces, clickable_slots}
       _ ->
         # everything should be not clickable
         {[], []}
@@ -337,35 +393,34 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
     |> Enum.map(fn {id, _} -> id end)
   end
 
-  # return {attackable, reachable}
-  def get_selectable(socket, piece) do
-    board_map = socket.assigns.board_map
+  # return {[piece_id], [slot_id]}
+  def get_reachable(socket, piece_id) do
+    piece = get_piece(socket, piece_id)
 
-    piece = get_piece(socket, piece)
-
-    paths = if piece.display == "Sapper" do
-        Armychess.Entity.Slot.reachable_map_sapper(piece.slot)
-      else
-        Armychess.Entity.Slot.reachable_map(piece.slot)
+    {attackable_list, reachable_list} = Armychess.Entity.Slot.get_reachable(
+      piece.slot,
+      piece.display,
+      fn slot_id ->
+        socket.assigns.board_map[slot_id]
+      end,
+      fn piece_id ->
+        Piece.is_enemy_piece(piece_id)
       end
+    )
 
-    result_list = for path <- paths do
-      Enum.reduce_while(path |> List.delete_at(0), {[], []}, fn s, {pieces, slots} ->
-        p = Map.get(board_map, s)
-        cond do
-          p == nil ->
-            {:cont, {pieces, [s | slots]}}
-          Piece.is_enemy_piece(p) ->
-            {:halt, {[p | pieces], slots}}
-          true ->
-            {:halt, {pieces, slots}}
-        end
+    attackable_list =
+      attackable_list
+      |> Enum.map(fn slot_id ->
+        socket.assigns.board_map[slot_id]
       end)
-    end
 
-    pieces = Enum.map(result_list, fn {p, _s} -> p end) |> List.flatten() |> Enum.uniq()
-    slots =  Enum.map(result_list, fn {_p, s} -> s end) |> List.flatten() |> Enum.uniq()
-    {pieces, slots}
+    {attackable_list, reachable_list}
+  end
+
+  # return [slot]
+  def get_placeable(socket, p) do
+    Armychess.Entity.Piece.placeable_slots(p)
+    |> Enum.filter(fn s -> socket.assigns.board_map[s] == nil end)
   end
 
   # HELPER HELPER
@@ -401,6 +456,18 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
     socket
     |> put_in([Access.key(:assigns), Access.key(:piece_map), piece], p)
     |> set_stream_changes(piece)
+  end
+
+  defp insert_piece(socket, p) do
+    socket
+    |> put_in([Access.key(:assigns), Access.key(:piece_map), p.id], p)
+    |> set_stream_changes(p.id)
+  end
+
+  defp delete_piece(socket, piece_id) do
+    socket
+    |> pop_in([Access.key(:assigns), Access.key(:piece_map), piece_id]) |> elem(1)
+    |> set_stream_changes(piece_id)
   end
 
   def get_slot(socket, slot) do

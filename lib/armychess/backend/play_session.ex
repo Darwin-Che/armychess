@@ -3,11 +3,18 @@ defmodule Armychess.Server.PlaySession do
 
   import Ecto.Query
 
+  alias Armychess.Db
   alias Armychess.Repo
 
   require Logger
 
   @dsup_name Armychess.Server.PlaySession.DSupervisor
+
+  @spear_config Application.compile_env(:armychess, :spear_config, [])
+
+  def spear_config_host() do
+    (@spear_config |> Keyword.get(:host)) || "esdb://localhost:2113"
+  end
 
   # Caller API
 
@@ -33,7 +40,7 @@ defmodule Armychess.Server.PlaySession do
       GenServer.call(name, {:join, game_id, player_side, self()})
     catch
       :exit, _ ->
-        Logger.error("Failed to JOIN #{game_id}, Starting it")
+        Logger.warn("Failed to JOIN #{game_id}, Starting it")
         start({game_id})
         GenServer.call(name, {:join, game_id, player_side, self()})
     end
@@ -81,71 +88,52 @@ defmodule Armychess.Server.PlaySession do
   def init({game_id} = _args) do
     Logger.debug "Armychess.Server.PlaySession.init #{game_id}"
 
-    # In order to trap the exit of the liveview process
-    Process.flag(:trap_exit, true)
+    # Check if game already created
+    if Repo.get(Db.Game, game_id) == nil do
+      IO.inspect "HERERERERERER"
+      {:stop, :normal}
+    else
+      # Insert Or Update the GameSession
+      Db.GameSession.upsert(game_id, "player1", nil)
+      Db.GameSession.upsert(game_id, "player2", nil)
 
-    {:ok, conn} = Spear.Connection.start_link(connection_string: "esdb://localhost:2113")
+      # In order to trap the exit of the liveview process
+      Process.flag(:trap_exit, true)
 
-    state = %__MODULE__{
-      game_id: game_id,
-      stream_name: "Game_#{game_id}",
-      spear_conn: conn,
-    }
+      {:ok, conn} = Spear.Connection.start_link(connection_string: @spear_host)
 
-    # Read existing messages
-    events = Spear.stream!(conn, state.stream_name) |> Enum.to_list()
+      state = %__MODULE__{
+        game_id: game_id,
+        stream_name: "Game_#{game_id}",
+        spear_conn: conn,
+      }
 
-    state =
-      events
-      |> Enum.reduce(state, fn %{type: type, body: msg}, state ->
-        # Logger.debug("Catchup #{inspect type} #{inspect msg}")
-        case handle_event(type, msg, state) do
-          {:ok, new_state, _} ->
-            new_state
-          {:error, err} ->
-            Logger.error("PlaySession.init handle_event #{inspect type} #{inspect msg} returns #{inspect err}")
-            state
-          _ ->
-            Logger.error("PlaySession.init handle_event #{inspect type} #{inspect msg} returns invalid")
-            state
-        end
-      end)
+      # Read existing messages
+      events = Spear.stream!(conn, state.stream_name) |> Enum.to_list()
+      state = load_stream(events, state)
 
-    IO.inspect state.board
-
-    {:ok, state}
+      {:ok, state}
+    end
   end
 
-  # def handle_continue({:join_game}, state) do
-  #   game_session = (
-  #     from Armychess.Db.GameSession,
-  #     where: [game_id: ^state.game_id, player_side: ^"player#{state.player_side}"]
-  #   ) |> Repo.one()
+  defp load_stream(events, state) do
+    events
+    |> Enum.reduce(state, fn %{type: type, body: msg}, state ->
+      # Logger.debug("Catchup #{inspect type} #{inspect msg}")
+      case handle_event(type, msg, state) do
+        {:ok, new_state, _} ->
+          new_state
+        {:error, err} ->
+          Logger.error("PlaySession.init handle_event #{inspect type} #{inspect msg} returns #{inspect err}")
+          state
+        _ ->
+          Logger.error("PlaySession.init handle_event #{inspect type} #{inspect msg} returns invalid")
+          state
+      end
+    end)
+  end
 
-  #   session_id = "#{Node.self()}#{self() |> :erlang.pid_to_list()}"
-
-  #   cond do
-  #     game_session.session == nil ->
-  #       # Create a new session
-  #       try do
-
-
-  #         {:noreply, struct(state, session: session_id), {:continue, {:connected}}}
-  #       rescue
-  #         e in Ecto.StaleEntryError ->
-  #           # Other has this session
-  #           {:stop, :normal, state}
-  #       end
-  #       game_session.session == session_id ->
-  #       # The session is duplicated, allowed
-  #       {:noreply, struct(state, session: session_id), {:continue, {:connected}}}
-  #     true ->
-  #       # Other has this session
-  #       {:stop, :normal, state}
-  #   end
-  # end
-
-  def handle_call({:join, game_id, player_side, view_pid}, _from, state) do
+  def handle_call({:join, game_id, player_side, view_pid}, {pid, _} = _from, state) do
     # Check if player_side is already connected
     if Map.get(state.connected, player_side) == nil do
       session_state = calc_session_state(player_side, state)
@@ -155,9 +143,10 @@ defmodule Armychess.Server.PlaySession do
       # :ok = spear_send("player_joined", %{player_side: player_side}, state)
       publish([:player_joined, player_side], state)
 
+      Db.GameSession.upsert(game_id, player_side, "#{:erlang.pid_to_list(pid)}")
+
       {:reply, {:ok, session_state}, struct(state, connected: connected)}
     else
-      Logger.error(inspect(state.connected))
       {:reply, :rejected, state}
     end
   end
@@ -363,6 +352,8 @@ defmodule Armychess.Server.PlaySession do
         # :ok = spear_send("player_left", %{player_side: player_side}, state)
         publish([:player_left, player_side], state)
 
+        Db.GameSession.upsert(state.game_id, player_side, nil)
+
         {:noreply, state}
     end
   end
@@ -455,39 +446,25 @@ defmodule Armychess.Server.PlaySession do
   end
 
   defp reachable_list(board, from_slot) do
-    reachable_or_attackable_list(board, from_slot) |> elem(1)
+    get_reachable(board, from_slot) |> elem(1)
   end
 
   defp attackable_list(board, from_slot) do
-    reachable_or_attackable_list(board, from_slot) |> elem(0)
+    get_reachable(board, from_slot) |> elem(0)
   end
 
-  defp reachable_or_attackable_list(board, from_slot) do
-    {player_side, piece} = board[from_slot]
+  defp get_reachable(board, from_slot) do
+    {player_side, display} = board[from_slot]
 
-    paths = if piece == "Sapper" do
-      Armychess.Entity.Slot.reachable_map_sapper(slot_rel(from_slot, player_side))
-    else
-      Armychess.Entity.Slot.reachable_map(slot_rel(from_slot, player_side))
-    end
-
-    result_list = for path <- paths do
-      Enum.reduce_while(path |> List.delete_at(0), {[], []}, fn s, {slots_attack, slots_reach} ->
-        {player_side, piece} =
-        case Map.get(board, slot_abs(s, player_side)) do
-          nil ->
-            {:cont, {slots_attack, [s | slots_reach]}}
-          {side, _} when side != player_side ->
-            {:halt, {[s | slots_attack], slots_reach}}
-          _ ->
-            {:halt, {slots_attack, slots_reach}}
-        end
-      end)
-    end
-
-    slots_attack = Enum.map(result_list, fn {a, _r} -> a end) |> List.flatten() |> Enum.uniq() |> Enum.map(&(slot_abs(&1, player_side)))
-    slots_reach =  Enum.map(result_list, fn {_a, r} -> r end) |> List.flatten() |> Enum.uniq() |> Enum.map(&(slot_abs(&1, player_side)))
-
-    {slots_attack, slots_reach}
+    Armychess.Entity.Slot.get_reachable(
+      from_slot,
+      display,
+      fn slot_id ->
+        board[slot_id]
+      end,
+      fn {side, _display} ->
+        side != player_side
+      end
+    )
   end
 end
