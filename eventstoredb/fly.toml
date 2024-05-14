@@ -18,6 +18,8 @@ primary_region = 'ewr'
   EVENTSTORE_LOG = '/esdb/log'
   EVENTSTORE_RUN_PROJECTIONS = 'All'
   EVENTSTORE_START_STANDARD_PROJECTIONS = 'true'
+  EVENTSTORE_NODE_IP = '::'
+  EVENTSTORE_REPLICATION_IP = '::'
 
 [[mounts]]
   source = 'armychess_esdb_data'

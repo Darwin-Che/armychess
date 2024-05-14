@@ -12,6 +12,9 @@ services:
       - EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP=true
       - EVENTSTORE_DB=/esdb/db
       - EVENTSTORE_LOG=/esdb/log
+      - EVENTSTORE_LOG_LEVEL=Verbose
+      - EVENTSTORE_NODE_IP=[::]
+      - EVENTSTORE_REPLICATION_IP=[::]
     ports:
       - "2113:2113"
     volumes:

@@ -18,4 +18,5 @@ config :logger, level: :info
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
-config :armychess, :spear_config, host: "esdb://armychess-esdb.internal:2113"
+config :armychess, :spear_config,
+  host: "esdb://armychess-esdb.internal:2113"

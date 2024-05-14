@@ -12,8 +12,12 @@ defmodule Armychess.Server.PlaySession do
 
   @spear_config Application.compile_env(:armychess, :spear_config, [])
 
-  def spear_config_host() do
+  def spear_config_connection_string() do
     @spear_config |> Keyword.get(:host) || "esdb://localhost:2113"
+  end
+
+  def spear_config_mint_opts() do
+    [protocols: [:http2], mode: :active, transport_opts: [inet6: true]]
   end
 
   # Caller API
@@ -109,7 +113,9 @@ defmodule Armychess.Server.PlaySession do
       # In order to trap the exit of the liveview process
       Process.flag(:trap_exit, true)
 
-      {:ok, conn} = Spear.Connection.start_link(connection_string: @spear_host)
+      {:ok, conn} = Spear.Connection.start_link(
+        connection_string: spear_config_connection_string(),
+        mint_opts: spear_config_mint_opts())
 
       state = %__MODULE__{
         game_id: game_id,
