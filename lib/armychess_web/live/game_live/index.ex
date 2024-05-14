@@ -11,12 +11,13 @@ defmodule ArmychessWeb.GameLive.Index do
   def mount(_params, _session, socket) do
     query =
       from g in Db.Game,
-      order_by: [desc: :inserted_at],
-      limit: 15
+        order_by: [desc: :inserted_at],
+        limit: 15
 
     recent_games = Repo.all(query)
 
-    socket = socket
+    socket =
+      socket
       |> assign(:games, recent_games)
       |> assign(:create_game_id, nil)
 

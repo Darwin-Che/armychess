@@ -2,22 +2,24 @@ defmodule Armychess.Entity.SlotMeta do
   def edges_one_side(s) do
     # horizontal lines
     horizontal_lines =
-      for r <- (1..6), c <- (1..4) do
-        {"slot_#{s}#{r}#{c}", "slot_#{s}#{r}#{c+1}", r == 1 or r == 5}
+      for r <- 1..6, c <- 1..4 do
+        {"slot_#{s}#{r}#{c}", "slot_#{s}#{r}#{c + 1}", r == 1 or r == 5}
       end
+
     # vertical lines
     vertical_lines =
-      for c <- (1..5), r <- (1..5) do
-        {"slot_#{s}#{r}#{c}", "slot_#{s}#{r+1}#{c}", (c == 1 or c == 5) and r != 5}
+      for c <- 1..5, r <- 1..5 do
+        {"slot_#{s}#{r}#{c}", "slot_#{s}#{r + 1}#{c}", (c == 1 or c == 5) and r != 5}
       end
+
     # slashes
     slashes =
       for {r, c} <- [{2, 2}, {2, 4}, {3, 3}, {4, 2}, {4, 4}] do
         [
-          {"slot_#{s}#{r}#{c}", "slot_#{s}#{r+1}#{c+1}", false},
-          {"slot_#{s}#{r}#{c}", "slot_#{s}#{r-1}#{c+1}", false},
-          {"slot_#{s}#{r}#{c}", "slot_#{s}#{r+1}#{c-1}", false},
-          {"slot_#{s}#{r}#{c}", "slot_#{s}#{r-1}#{c-1}", false},
+          {"slot_#{s}#{r}#{c}", "slot_#{s}#{r + 1}#{c + 1}", false},
+          {"slot_#{s}#{r}#{c}", "slot_#{s}#{r - 1}#{c + 1}", false},
+          {"slot_#{s}#{r}#{c}", "slot_#{s}#{r + 1}#{c - 1}", false},
+          {"slot_#{s}#{r}#{c}", "slot_#{s}#{r - 1}#{c - 1}", false}
         ]
       end
 
@@ -55,7 +57,7 @@ defmodule Armychess.Entity.SlotMeta do
   # %{"slot_0xx" => [["slot_0xx", "slot_0yy", "slot_0aa"], []]}
   # adjacent_map = %{"slot_0xx" => {[:rails], [:roads]}}
   def reachable_map_sapper(adjacent_map) do
-    for s <- [0, 9], r <- (1..6), c <- (1..5) do
+    for s <- [0, 9], r <- 1..6, c <- 1..5 do
       slot = "slot_#{s}#{r}#{c}"
       {slot, reachable_paths(adjacent_map, slot)}
     end
@@ -75,7 +77,7 @@ defmodule Armychess.Entity.SlotMeta do
         [slot, road_slot]
       end
 
-    [reachable_paths_road, reachable_paths_rail] |> Enum.flat_map(&(&1))
+    [reachable_paths_road, reachable_paths_rail] |> Enum.flat_map(& &1)
   end
 
   # return a list of paths
@@ -90,7 +92,7 @@ defmodule Armychess.Entity.SlotMeta do
           reachable_paths_rail(adjacent_map, [rail_slot | path])
         end
       end
-      |> Enum.flat_map(&(&1))
+      |> Enum.flat_map(& &1)
 
     if length(rail_paths) == 0 do
       [path]
@@ -142,15 +144,16 @@ defmodule Armychess.Entity.SlotMeta do
     next_slot_r = next_slot |> String.at(-2)
     next_slot_c = next_slot |> String.at(-1)
 
-    slot_c_bool = if prev_slot_s == next_slot_s do
-      prev_slot_c == next_slot_c
-    else
-      {prev_slot_c, _} = Integer.parse(prev_slot_c)
-      {next_slot_c, _} = Integer.parse(next_slot_c)
-      (6 - prev_slot_c) == next_slot_c
-    end
+    slot_c_bool =
+      if prev_slot_s == next_slot_s do
+        prev_slot_c == next_slot_c
+      else
+        {prev_slot_c, _} = Integer.parse(prev_slot_c)
+        {next_slot_c, _} = Integer.parse(next_slot_c)
+        6 - prev_slot_c == next_slot_c
+      end
 
-    slot_r_bool = (prev_slot_s == next_slot_s) and (prev_slot_r == next_slot_r)
+    slot_r_bool = prev_slot_s == next_slot_s and prev_slot_r == next_slot_r
 
     slot_c_bool or slot_r_bool
   end
@@ -164,6 +167,7 @@ defmodule Armychess.Entity.SlotMeta do
           else
             {:halt, new_path}
           end
+
         _ ->
           {:cont, [slot | new_path]}
       end
@@ -181,13 +185,14 @@ defmodule Armychess.Entity.SlotMeta do
   end
 
   defp remove_prefix_helper(results, [path | longer_paths]) do
-    is_dup = Enum.reduce_while(longer_paths, false, fn longer_path, _ ->
-      if List.starts_with?(longer_path, path) do
-        {:halt, true}
-      else
-        {:cont, false}
-      end
-    end)
+    is_dup =
+      Enum.reduce_while(longer_paths, false, fn longer_path, _ ->
+        if List.starts_with?(longer_path, path) do
+          {:halt, true}
+        else
+          {:cont, false}
+        end
+      end)
 
     if is_dup do
       remove_prefix_helper(results, longer_paths)

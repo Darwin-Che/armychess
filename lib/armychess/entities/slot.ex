@@ -9,12 +9,13 @@ defmodule Armychess.Entity.Slot do
 
   # [{"slot_0xx", "slot_9xx", true/false}]
   @edges [
-    edges_one_side(0),
-    edges_one_side(9),
-    {"slot_011", "slot_915", true},
-    {"slot_013", "slot_913", true},
-    {"slot_015", "slot_911", true},
-  ] |> List.flatten()
+           edges_one_side(0),
+           edges_one_side(9),
+           {"slot_011", "slot_915", true},
+           {"slot_013", "slot_913", true},
+           {"slot_015", "slot_911", true}
+         ]
+         |> List.flatten()
 
   # %{"slot_0xx" => {[:rails], [:roads]}}
   @adjacent_map adjacent_map(@edges)
@@ -27,11 +28,11 @@ defmodule Armychess.Entity.Slot do
   @reachable_map_abs reachable_map_convert_to_abs(@reachable_map_rel)
 
   def get_reachable_map(slot) do
-    (@reachable_map_rel |> Map.get(slot)) || (@reachable_map_abs |> Map.get(slot))
+    @reachable_map_rel |> Map.get(slot) || @reachable_map_abs |> Map.get(slot)
   end
 
   def get_reachable_map_sapper(slot) do
-    (@reachable_map_rel_sapper |> Map.get(slot)) || (@reachable_map_abs_sapper |> Map.get(slot))
+    @reachable_map_rel_sapper |> Map.get(slot) || @reachable_map_abs_sapper |> Map.get(slot)
   end
 
   def adjacent_map() do
@@ -51,28 +52,33 @@ defmodule Armychess.Entity.Slot do
   end
 
   def get_reachable(slot, display, get_piece_fun, is_enemy_fun) do
-    paths = if display == "Sapper" do
+    paths =
+      if display == "Sapper" do
         get_reachable_map_sapper(slot)
       else
         get_reachable_map(slot)
       end
 
-    result_list = for path <- paths do
-      Enum.reduce_while(path |> List.delete_at(0), {[], []}, fn s, {pieces, slots} ->
-        p = get_piece_fun.(s)
-        cond do
-          p == nil ->
-            {:cont, {pieces, [s | slots]}}
-          is_enemy_fun.(p) && !is_camp_slot(s) ->
-            {:halt, {[s | pieces], slots}}
-          true ->
-            {:halt, {pieces, slots}}
-        end
-      end)
-    end
+    result_list =
+      for path <- paths do
+        Enum.reduce_while(path |> List.delete_at(0), {[], []}, fn s, {pieces, slots} ->
+          p = get_piece_fun.(s)
+
+          cond do
+            p == nil ->
+              {:cont, {pieces, [s | slots]}}
+
+            is_enemy_fun.(p) && !is_camp_slot(s) ->
+              {:halt, {[s | pieces], slots}}
+
+            true ->
+              {:halt, {pieces, slots}}
+          end
+        end)
+      end
 
     pieces = Enum.map(result_list, fn {p, _s} -> p end) |> List.flatten() |> Enum.uniq()
-    slots =  Enum.map(result_list, fn {_p, s} -> s end) |> List.flatten() |> Enum.uniq()
+    slots = Enum.map(result_list, fn {_p, s} -> s end) |> List.flatten() |> Enum.uniq()
     {pieces, slots}
   end
 

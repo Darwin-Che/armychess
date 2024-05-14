@@ -26,13 +26,14 @@ defmodule Armychess.Db.GameSession do
   end
 
   def upsert(game_id, player_side, session) do
-    game_id = if is_binary(game_id) do
-      game_id |> Integer.parse() |> elem(0)
-    else
-      game_id
-    end
+    game_id =
+      if is_binary(game_id) do
+        game_id |> Integer.parse() |> elem(0)
+      else
+        game_id
+      end
 
-    if s = Repo.get_by(__MODULE__, [game_id: game_id, player_side: player_side]) do
+    if s = Repo.get_by(__MODULE__, game_id: game_id, player_side: player_side) do
       # exist record
       Db.GameSession.changeset(s, :update, %{session: session}) |> Repo.update!()
     else

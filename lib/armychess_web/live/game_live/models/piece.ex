@@ -1,11 +1,9 @@
 defmodule ArmychessWeb.GameLive.Models.Piece do
-  defstruct [
-    id: "piece_xxx",
-    slot: "slot_xxx",
-    display: "Empty",
-    enabled: false,
-    status: "",
-  ]
+  defstruct id: "piece_xxx",
+            slot: "slot_xxx",
+            display: "Empty",
+            enabled: false,
+            status: ""
 
   def is_valid_piece(piece) do
     piece != nil and String.starts_with?(piece, "piece_")

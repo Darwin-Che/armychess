@@ -1,54 +1,121 @@
 <div class="relative h-[900px] w-[1000px] mx-auto">
-
   <a href={"/games/#{@game_id}"} class="font-bold">← Back to Lobby</a>
 
   <div class="flex grow flex-row items-center gap-[50px]">
-
     <div class="h-[900px] w-[600px]">
-      <img src="/images/board.svg" class="h-[900px] w-[600px]"/>
+      <img src="/images/board.svg" class="h-[900px] w-[600px]" />
 
       <div id="play-slots" phx-update="stream">
         <%= for {id, slot} <- @streams.slot_stream do %>
-          <div id={"mark_#{slot.id}"} class={"mark_#{slot.mark}"} hidden={slot.mark == nil}/>
-          <button id={slot.id} class={"#{if slot.enabled do "slot-enabled" else "" end}"} phx-click="click-slot" phx-value-id={slot.id} disabled={!slot.enabled} />
+          <div id={"mark_#{slot.id}"} class={"mark_#{slot.mark}"} hidden={slot.mark == nil} />
+          <button
+            id={slot.id}
+            class={"#{if slot.enabled do "slot-enabled" else "" end}"}
+            phx-click="click-slot"
+            phx-value-id={slot.id}
+            disabled={!slot.enabled}
+          />
         <% end %>
       </div>
 
       <div id="play-pieces" phx-update="stream">
         <%= for {id, piece} <- @streams.piece_stream do %>
-          <button id={piece.id} btnpos={piece.slot} phx-click="click-chess" phx-value-id={piece.id} disabled={!piece.enabled} hidden={piece.slot == nil}>
-            <img class="piece_img" src={"/images/piece_#{piece.display}.svg"}/>
+          <button
+            id={piece.id}
+            btnpos={piece.slot}
+            phx-click="click-chess"
+            phx-value-id={piece.id}
+            disabled={!piece.enabled}
+            hidden={piece.slot == nil}
+          >
+            <img class="piece_img" src={"/images/piece_#{piece.display}.svg"} />
           </button>
         <% end %>
       </div>
-
     </div>
 
     <div class="h-[900px] w-[350px]">
-      SIDE PANEL
-      <br/>
+      SIDE PANEL <br />
       <%= @game_phase %>
-      <br/>
-      <br/>
-      <br/>
-      <br/>
-      <div id="placebtn-section" class="grid grid-cols-[150px_auto] gap-[20px] justify-items-center" :if={@game_phase == :placing}>
-        <ArmychessWeb.Components.Placebtn.placebtn p="HQ" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="Landmine" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="Bomb" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="President" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="General" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="Colonel" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="Major" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="Captain" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="Lieutenant" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="Sergeant" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="Corporal" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <ArmychessWeb.Components.Placebtn.placebtn p="Sapper" cnt={@placebtn_cnt} selected={@placebtn_selected}/>
-        <button class={"h-[50px] w-[100px] border-4 rounded #{if @placebtn_cnt |> Map.values() |> Enum.all?(&(&1 == 0)) do "bg-green-100" else "bg-gray-100" end}"} phx-click="click-placebtn-ready">
+      <br />
+      <br />
+      <br />
+      <br />
+      <div
+        :if={@game_phase == :placing}
+        id="placebtn-section"
+        class="grid grid-cols-[150px_auto] gap-[20px] justify-items-center"
+      >
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="HQ"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="Landmine"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="Bomb"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="President"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="General"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="Colonel"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="Major"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="Captain"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="Lieutenant"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="Sergeant"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="Corporal"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <ArmychessWeb.Components.Placebtn.placebtn
+          p="Sapper"
+          cnt={@placebtn_cnt}
+          selected={@placebtn_selected}
+        />
+        <button
+          class={"h-[50px] w-[100px] border-4 rounded #{if @placebtn_cnt |> Map.values() |> Enum.all?(&(&1 == 0)) do "bg-green-100" else "bg-gray-100" end}"}
+          phx-click="click-placebtn-ready"
+        >
           Ready
         </button>
-        <button class={"h-[50px] w-[100px] border-4 rounded #{if @placebtn_cnt |> Map.values() |> Enum.all?(&(&1 == 0)) do "bg-green-100" else "bg-gray-100" end}"} phx-click="click-placebtn-preset">
+        <button
+          class={"h-[50px] w-[100px] border-4 rounded #{if @placebtn_cnt |> Map.values() |> Enum.all?(&(&1 == 0)) do "bg-green-100" else "bg-gray-100" end}"}
+          phx-click="click-placebtn-preset"
+        >
           Preset
         </button>
       </div>

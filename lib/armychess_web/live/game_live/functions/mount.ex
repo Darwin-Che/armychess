@@ -27,12 +27,15 @@ defmodule ArmychessWeb.GameLive.Functions.Mount do
 
   def mount_server(socket) do
     socket
-    |> assign(:server,
+    |> assign(
+      :server,
       Armychess.Server.Play.new(
         socket.assigns.game_id,
         socket.assigns.host_id
-      ))
+      )
+    )
   end
+
   # defp wrap(l, key) when is_list(l) do
   #   Enum.map(l, fn x -> wrap(x, key) end)
   # end

@@ -4,14 +4,17 @@ defmodule ArmychessWeb.GameLive.Models.Game do
   alias ArmychessWeb.GameLive.Models.Piece
   alias ArmychessWeb.GameLive.Models.Slot
 
-  defstruct [
-    id: "",
-    slot_map: %{},  # "slot_xxx" -> %Slot{}
-    board_map: %{}, # "slot_xxx" -> "piece_xxx"
-    piece_map: %{}, # "piece_xxx" -> %Piece{}
-    update_list_piece: [], # "piece_xxx"
-    update_list_slot: [], # "piece_xxx"
-  ]
+  defstruct id: "",
+            # "slot_xxx" -> %Slot{}
+            slot_map: %{},
+            # "slot_xxx" -> "piece_xxx"
+            board_map: %{},
+            # "piece_xxx" -> %Piece{}
+            piece_map: %{},
+            # "piece_xxx"
+            update_list_piece: [],
+            # "piece_xxx"
+            update_list_slot: []
 
   def from_socket(socket) do
     socket.assigns.game
@@ -53,6 +56,7 @@ defmodule ArmychessWeb.GameLive.Models.Game do
 
   def set_piece(game, piece, changeset \\ %{}) do
     p = get_piece(game, piece) |> struct(changeset)
+
     game
     |> put_in([Access.key(:piece_map), piece], p)
     |> updated_piece(piece)
@@ -60,6 +64,7 @@ defmodule ArmychessWeb.GameLive.Models.Game do
 
   def set_pieces_mark(game, pieces, mark) do
     slots = get_pieces(game, pieces) |> Enum.map(fn piece -> piece.slot end)
+
     game
     |> set_slots_mark(slots, mark)
   end
@@ -95,9 +100,10 @@ defmodule ArmychessWeb.GameLive.Models.Game do
   ## Slots
 
   def reset_slots(game) do
-    reset_slots = Enum.filter(game.slot_map, fn {k, v} ->
-      v.enabled or (v.mark != nil)
-    end)
+    reset_slots =
+      Enum.filter(game.slot_map, fn {k, v} ->
+        v.enabled or v.mark != nil
+      end)
 
     List.foldl(reset_slots, game, fn {k, v}, game ->
       reset_slot(game, k)
@@ -122,7 +128,7 @@ defmodule ArmychessWeb.GameLive.Models.Game do
 
   def set_slots_enabled(game, slots) do
     game
-    |> Map.update!(:slot_map , fn sm ->
+    |> Map.update!(:slot_map, fn sm ->
       List.foldl(slots, sm, fn slot, sm ->
         Map.update!(sm, slot, fn s ->
           struct(s, enabled: true)
@@ -134,7 +140,7 @@ defmodule ArmychessWeb.GameLive.Models.Game do
 
   def set_slots_disabled(game, slots) do
     game
-    |> Map.update!(:slot_map , fn sm ->
+    |> Map.update!(:slot_map, fn sm ->
       List.foldl(slots, sm, fn slot, sm ->
         Map.update!(sm, slot, fn s ->
           struct(s, enabled: false)
@@ -146,7 +152,7 @@ defmodule ArmychessWeb.GameLive.Models.Game do
 
   def set_slots_mark(game, slots, mark) do
     game
-    |> Map.update!(:slot_map , fn sm ->
+    |> Map.update!(:slot_map, fn sm ->
       List.foldl(slots, sm, fn slot, sm ->
         Map.update!(sm, slot, fn s ->
           struct(s, mark: mark)
@@ -164,29 +170,35 @@ defmodule ArmychessWeb.GameLive.Models.Game do
 
     piece = get_piece(game, piece)
 
-    paths = if piece.display == "Sapper" do
+    paths =
+      if piece.display == "Sapper" do
         Armychess.Entity.Slot.reachable_map_sapper(piece.slot)
       else
         Armychess.Entity.Slot.reachable_map(piece.slot)
       end
-      # |> IO.inspect
 
-    result_list = for path <- paths do
-      Enum.reduce_while(path |> List.delete_at(0), {[], []}, fn s, {pieces, slots} ->
-        p = Map.get(board_map, s)
-        cond do
-          p == nil ->
-            {:cont, {pieces, [s | slots]}}
-          Piece.is_enemy_piece(p) ->
-            {:halt, {[p | pieces], slots}}
-          true ->
-            {:halt, {pieces, slots}}
-        end
-      end)
-    end
+    # |> IO.inspect
+
+    result_list =
+      for path <- paths do
+        Enum.reduce_while(path |> List.delete_at(0), {[], []}, fn s, {pieces, slots} ->
+          p = Map.get(board_map, s)
+
+          cond do
+            p == nil ->
+              {:cont, {pieces, [s | slots]}}
+
+            Piece.is_enemy_piece(p) ->
+              {:halt, {[p | pieces], slots}}
+
+            true ->
+              {:halt, {pieces, slots}}
+          end
+        end)
+      end
 
     pieces = Enum.map(result_list, fn {p, _s} -> p end) |> List.flatten() |> Enum.uniq()
-    slots =  Enum.map(result_list, fn {_p, s} -> s end) |> List.flatten() |> Enum.uniq()
+    slots = Enum.map(result_list, fn {_p, s} -> s end) |> List.flatten() |> Enum.uniq()
     {pieces, slots}
     # |> IO.inspect
   end
@@ -210,16 +222,17 @@ defmodule ArmychessWeb.GameLive.Models.Game do
       id: id,
       slot_map: tmp_slot_map(),
       board_map: tmp_board_map(),
-      piece_map: tmp_piece_map(),
+      piece_map: tmp_piece_map()
     }
   end
 
   defp tmp_slot_map() do
-    slots = for s <- [0, 9], c <- (1..5), r <- (1..6) do
-      %Slot{
-        id: "slot_#{s}#{r}#{c}",
-      }
-    end
+    slots =
+      for s <- [0, 9], c <- 1..5, r <- 1..6 do
+        %Slot{
+          id: "slot_#{s}#{r}#{c}"
+        }
+      end
 
     slots
     |> Map.new(fn slot -> {slot.id, slot} end)
@@ -241,59 +254,57 @@ defmodule ArmychessWeb.GameLive.Models.Game do
       "piece_013" => "Colonel",
       "piece_014" => "Colonel",
       "piece_015" => "Major",
-
       "piece_021" => "Major",
       # "piece_022" => "Captain",
       "piece_023" => "Captain",
       # "piece_024" => "Lieutenant",
       "piece_025" => "Captain",
-
       "piece_031" => "Lieutenant",
       "piece_032" => "Lieutenant",
       # "piece_033" => "Corporal",
       "piece_034" => "Sergeant",
       "piece_035" => "Sergeant",
-
       "piece_041" => "Sergeant",
       # "piece_042" => "Landmine",
       "piece_043" => "Corporal",
       # "piece_044" => "Landmine",
       "piece_045" => "Corporal",
-
       "piece_051" => "Corporal",
       "piece_052" => "Sapper",
       "piece_053" => "Sapper",
       "piece_054" => "Sapper",
       "piece_055" => "Landmine",
-
       "piece_061" => "Landmine",
       "piece_062" => "Landmine",
       "piece_063" => "Bomb",
       "piece_064" => "HQ",
-      "piece_065" => "Bomb",
+      "piece_065" => "Bomb"
     }
 
     enemy_pieces =
       for {k, _} <- owned_pieces do
         r = String.at(k, -2)
         c = String.at(k, -1)
-        {"piece_9#{r}#{c}", %Piece{
-          id: "piece_9#{r}#{c}",
-          slot: "slot_9#{r}#{c}",
-          display: "Empty",
-          enabled: false,
-        }}
+
+        {"piece_9#{r}#{c}",
+         %Piece{
+           id: "piece_9#{r}#{c}",
+           slot: "slot_9#{r}#{c}",
+           display: "Empty",
+           enabled: false
+         }}
       end
       |> Map.new()
 
     piece_map =
       Map.new(owned_pieces, fn {k, v} ->
-        {k, %Piece{
-          id: k,
-          slot: String.replace_leading(k, "piece", "slot"),
-          display: v,
-          enabled: v != "HQ" and v != "Landmine",
-        }}
+        {k,
+         %Piece{
+           id: k,
+           slot: String.replace_leading(k, "piece", "slot"),
+           display: v,
+           enabled: v != "HQ" and v != "Landmine"
+         }}
       end)
       |> Map.merge(enemy_pieces)
   end

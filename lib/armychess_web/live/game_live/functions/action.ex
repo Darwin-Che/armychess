@@ -11,11 +11,12 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
   require Logger
 
   def init_slot(socket) do
-    slots = for s <- [0, 9], c <- (1..5), r <- (1..6) do
-      %Slot{
-        id: "slot_#{s}#{r}#{c}",
-      }
-    end
+    slots =
+      for s <- [0, 9], c <- 1..5, r <- 1..6 do
+        %Slot{
+          id: "slot_#{s}#{r}#{c}"
+        }
+      end
 
     slot_map = Map.new(slots, fn slot -> {slot.id, slot} end)
 
@@ -36,16 +37,17 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
   ```
   """
   def init_game_state(socket, session_state) do
-    socket = case socket.assigns.game_phase do
-      :connecting ->
-        socket
-        |> init_owned_pieces(session_state)
-        |> init_enemy_pieces(session_state)
+    socket =
+      case socket.assigns.game_phase do
+        :connecting ->
+          socket
+          |> init_owned_pieces(session_state)
+          |> init_enemy_pieces(session_state)
 
-      _ ->
-        # TODO: Verify the board from session_state with the current state
-        socket
-    end
+        _ ->
+          # TODO: Verify the board from session_state with the current state
+          socket
+      end
 
     socket
     |> assign(:game_phase, translate_game_phase(session_state.phase, socket.assigns.player_side))
@@ -61,12 +63,16 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
         else
           :wait_placing
         end
+
       {:move, s} when player_side == s ->
         :moving
+
       {:move, s} when player_side != s ->
         :wait_moving
+
       {:end, s} when player_side == s ->
         :game_win
+
       {:end, s} when player_side != s ->
         :game_lose
     end
@@ -86,16 +92,22 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
     piece_map_owned =
       Enum.with_index(session_state.owned_pieces)
       |> Map.new(fn {{slot, display}, idx} ->
-        id = "piece_0#{idx |> Integer.to_string |> String.pad_leading(2, "0")}"
+        id = "piece_0#{idx |> Integer.to_string() |> String.pad_leading(2, "0")}"
         {id, %Piece{id: id, slot: slot, display: display}}
       end)
 
-    socket = Enum.reduce(piece_map_owned, socket, fn {_, piece}, socket ->
-      set_stream_changes(socket, piece.id)
-    end)
+    socket =
+      Enum.reduce(piece_map_owned, socket, fn {_, piece}, socket ->
+        set_stream_changes(socket, piece.id)
+      end)
 
     piece_map = Map.merge(socket.assigns.piece_map, piece_map_owned)
-    board_map = Map.merge(socket.assigns.board_map, Map.new(piece_map_owned, fn {_, piece} -> {piece.slot, piece.id} end))
+
+    board_map =
+      Map.merge(
+        socket.assigns.board_map,
+        Map.new(piece_map_owned, fn {_, piece} -> {piece.slot, piece.id} end)
+      )
 
     socket
     |> assign(:piece_map, piece_map)
@@ -111,16 +123,22 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
     piece_map_enemy =
       Enum.with_index(session_state.enemy_pieces)
       |> Map.new(fn {slot, idx} ->
-        id = "piece_9#{idx |> Integer.to_string |> String.pad_leading(2, "0")}"
+        id = "piece_9#{idx |> Integer.to_string() |> String.pad_leading(2, "0")}"
         {id, %Piece{id: id, slot: slot, display: "Empty"}}
       end)
 
-    socket = Enum.reduce(piece_map_enemy, socket, fn {_, piece}, socket ->
-      set_stream_changes(socket, piece.id)
-    end)
+    socket =
+      Enum.reduce(piece_map_enemy, socket, fn {_, piece}, socket ->
+        set_stream_changes(socket, piece.id)
+      end)
 
     piece_map = Map.merge(socket.assigns.piece_map, piece_map_enemy)
-    board_map = Map.merge(socket.assigns.board_map, Map.new(piece_map_enemy, fn {_, piece} -> {piece.slot, piece.id} end))
+
+    board_map =
+      Map.merge(
+        socket.assigns.board_map,
+        Map.new(piece_map_enemy, fn {_, piece} -> {piece.slot, piece.id} end)
+      )
 
     socket
     |> assign(:piece_map, piece_map)
@@ -129,6 +147,7 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
 
   def ready(socket, place_map \\ nil) do
     place_map = place_map || default_place()
+
     case PlaySession.ready(socket.assigns.game_id, place_map) do
       {:ok} -> socket
       {:rejected, err} -> reject(socket)
@@ -140,10 +159,13 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
       piece_id = slot_id |> String.replace("slot_", "piece_")
       piece = %Piece{id: piece_id, display: p, slot: slot_id}
       board_map = Map.put(socket.assigns.board_map, slot_id, piece_id)
-      socket = socket
-      |> insert_piece(piece)
-      |> assign(:board_map, board_map)
-      |> assign(:placebtn_cnt, socket.assigns.placebtn_cnt |> update_in([p], &(&1 - 1)))
+
+      socket =
+        socket
+        |> insert_piece(piece)
+        |> assign(:board_map, board_map)
+        |> assign(:placebtn_cnt, socket.assigns.placebtn_cnt |> update_in([p], &(&1 - 1)))
+
       if socket.assigns.placebtn_cnt[p] == 0 do
         socket
         |> assign(:placebtn_selected, nil)
@@ -159,11 +181,12 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
     pieces =
       Armychess.Entity.Piece.available_list()
       |> Enum.map(&(&1 |> elem(0)))
-      |> Enum.map(&(List.duplicate(&1, socket.assigns.placebtn_cnt[&1] || 0)))
+      |> Enum.map(&List.duplicate(&1, socket.assigns.placebtn_cnt[&1] || 0))
       |> List.flatten()
 
     Enum.reduce(pieces, socket, fn p, socket ->
       placeable_slots = get_placeable(socket, p)
+
       if placeable_slots == [] do
         socket
       else
@@ -196,43 +219,39 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
       "slot_013" => "Colonel",
       "slot_014" => "Colonel",
       "slot_015" => "Major",
-
       "slot_021" => "Major",
       # "slot_022" => "Captain",
       "slot_023" => "Captain",
       # "slot_024" => "Lieutenant",
       "slot_025" => "Captain",
-
       "slot_031" => "Lieutenant",
       "slot_032" => "Lieutenant",
       # "slot_033" => "Corporal",
       "slot_034" => "Sergeant",
       "slot_035" => "Sergeant",
-
       "slot_041" => "Sergeant",
       # "slot_042" => "Landmine",
       "slot_043" => "Corporal",
       # "slot_044" => "Landmine",
       "slot_045" => "Corporal",
-
       "slot_051" => "Corporal",
       "slot_052" => "Sapper",
       "slot_053" => "Sapper",
       "slot_054" => "Sapper",
       "slot_055" => "Landmine",
-
       "slot_061" => "Landmine",
       "slot_062" => "Landmine",
       "slot_063" => "Bomb",
       "slot_064" => "HQ",
-      "slot_065" => "Bomb",
+      "slot_065" => "Bomb"
     }
   end
 
   def select_piece(socket, piece_id) do
     {attackable, selectable} = get_reachable(socket, piece_id)
 
-    marks = %{piece_id => "selected"}
+    marks =
+      %{piece_id => "selected"}
       |> Map.merge(Map.new(attackable, fn p -> {p, "target"} end))
 
     socket
@@ -277,6 +296,7 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
 
   def handle_reach(socket, from_slot, to_slot) do
     p = socket.assigns.board_map[from_slot]
+
     socket
     |> set_piece_move(p, to_slot)
   end
@@ -285,19 +305,22 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
     from_piece = socket.assigns.board_map[from_slot]
     to_piece = socket.assigns.board_map[to_slot]
 
-    socket = case attack_result do
-      :win ->
-        socket
-        |> set_piece_move(to_piece, nil)
-        |> set_piece_move(from_piece, to_slot)
-      :lose ->
-        socket
-        |> set_piece_move(from_piece, nil)
-      :draw ->
-        socket
-        |> set_piece_move(from_piece, nil)
-        |> set_piece_move(to_piece, nil)
-    end
+    socket =
+      case attack_result do
+        :win ->
+          socket
+          |> set_piece_move(to_piece, nil)
+          |> set_piece_move(from_piece, to_slot)
+
+        :lose ->
+          socket
+          |> set_piece_move(from_piece, nil)
+
+        :draw ->
+          socket
+          |> set_piece_move(from_piece, nil)
+          |> set_piece_move(to_piece, nil)
+      end
 
     socket
   end
@@ -305,28 +328,33 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
   # PUBLIC HELPER
 
   def update_clickable(socket) do
-    {clickable_pieces, clickable_slots} = case socket.assigns.game_phase do
-      :moving ->
-        if socket.assigns.selected != nil do
-          # owned pieces, reachable slot, attackable pieces are selectable
-          {attackable, reachable} = get_reachable(socket, socket.assigns.selected)
-          {get_owned_pieces(socket) ++ attackable, reachable}
-        else
-          # owned pieces are selectable
-          {get_owned_pieces(socket), []}
-        end
-      :placing ->
-        clickable_slots = if socket.assigns.placebtn_selected != nil do
-          get_placeable(socket, socket.assigns.placebtn_selected)
-        else
-          []
-        end
-        clickable_pieces = socket.assigns.board_map |> Map.values()
-        {clickable_pieces, clickable_slots}
-      _ ->
-        # everything should be not clickable
-        {[], []}
-    end
+    {clickable_pieces, clickable_slots} =
+      case socket.assigns.game_phase do
+        :moving ->
+          if socket.assigns.selected != nil do
+            # owned pieces, reachable slot, attackable pieces are selectable
+            {attackable, reachable} = get_reachable(socket, socket.assigns.selected)
+            {get_owned_pieces(socket) ++ attackable, reachable}
+          else
+            # owned pieces are selectable
+            {get_owned_pieces(socket), []}
+          end
+
+        :placing ->
+          clickable_slots =
+            if socket.assigns.placebtn_selected != nil do
+              get_placeable(socket, socket.assigns.placebtn_selected)
+            else
+              []
+            end
+
+          clickable_pieces = socket.assigns.board_map |> Map.values()
+          {clickable_pieces, clickable_slots}
+
+        _ ->
+          # everything should be not clickable
+          {[], []}
+      end
 
     socket =
       socket.assigns.piece_map
@@ -336,10 +364,12 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
             # enable p
             socket
             |> set_piece(id, enabled: true)
+
           id not in clickable_pieces and p.enabled ->
             # disable p
             socket
             |> set_piece(id, enabled: false)
+
           true ->
             socket
         end
@@ -353,10 +383,12 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
             # enable p
             socket
             |> set_slot(id, enabled: true)
+
           id not in clickable_slots and s.enabled ->
             # disable p
             socket
             |> set_slot(id, enabled: false)
+
           true ->
             socket
         end
@@ -397,16 +429,17 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
   def get_reachable(socket, piece_id) do
     piece = get_piece(socket, piece_id)
 
-    {attackable_list, reachable_list} = Armychess.Entity.Slot.get_reachable(
-      piece.slot,
-      piece.display,
-      fn slot_id ->
-        socket.assigns.board_map[slot_id]
-      end,
-      fn piece_id ->
-        Piece.is_enemy_piece(piece_id)
-      end
-    )
+    {attackable_list, reachable_list} =
+      Armychess.Entity.Slot.get_reachable(
+        piece.slot,
+        piece.display,
+        fn slot_id ->
+          socket.assigns.board_map[slot_id]
+        end,
+        fn piece_id ->
+          Piece.is_enemy_piece(piece_id)
+        end
+      )
 
     attackable_list =
       attackable_list
@@ -436,11 +469,12 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
   end
 
   defp set_board(socket, slot, p) do
-    new_board = if p == nil do
-      Map.delete(socket.assigns.board_map, slot)
-    else
-      Map.put(socket.assigns.board_map, slot, p)
-    end
+    new_board =
+      if p == nil do
+        Map.delete(socket.assigns.board_map, slot)
+      else
+        Map.put(socket.assigns.board_map, slot, p)
+      end
 
     socket
     |> assign(:board_map, new_board)
@@ -466,7 +500,8 @@ defmodule ArmychessWeb.GameLive.Functions.Action do
 
   defp delete_piece(socket, piece_id) do
     socket
-    |> pop_in([Access.key(:assigns), Access.key(:piece_map), piece_id]) |> elem(1)
+    |> pop_in([Access.key(:assigns), Access.key(:piece_map), piece_id])
+    |> elem(1)
     |> set_stream_changes(piece_id)
   end
 

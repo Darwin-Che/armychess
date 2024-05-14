@@ -11,7 +11,7 @@ defmodule Armychess.Entity.Piece do
     {"Corporal", 3},
     {"Sapper", 3},
     {"Bomb", 2},
-    {"HQ", 1},
+    {"HQ", 1}
   ]
 
   @names @pieces |> Enum.map(fn {name, _} -> name end)
@@ -32,6 +32,7 @@ defmodule Armychess.Entity.Piece do
   def cmp(p1, p2) do
     r1 = @rank_map[p1]
     r2 = @rank_map[p2]
+
     cond do
       r1 > r2 -> :lose
       r1 == r2 -> :draw
@@ -52,7 +53,7 @@ defmodule Armychess.Entity.Piece do
       {"Lieutenant", 2},
       {"Sergeant", 3},
       {"Corporal", 3},
-      {"Sapper", 3},
+      {"Sapper", 3}
     ]
   end
 
@@ -61,13 +62,13 @@ defmodule Armychess.Entity.Piece do
   end
 
   def placeable_slots("Landmine") do
-    for r <- (5..6), c <- (1..5) do
+    for r <- 5..6, c <- 1..5 do
       "slot_0#{r}#{c}"
     end
   end
 
   def placeable_slots(_) do
-    for r <- (1..6), c <- (1..5) do
+    for r <- 1..6, c <- 1..5 do
       "slot_0#{r}#{c}"
     end
     |> List.delete("slot_022")
@@ -77,6 +78,7 @@ defmodule Armychess.Entity.Piece do
     |> List.delete("slot_044")
   end
 end
+
 # HQ         * 1
 # President  * 1
 # General    * 1

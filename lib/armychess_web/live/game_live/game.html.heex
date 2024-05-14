@@ -4,21 +4,31 @@
   </b>
   <div class="flex flex-col gap-[30px]">
     <a
-    href={if @player_1_free do "/games/#{@game_id}/player/1" else nil end}
-    class={"text-center text-2xl rounded border-4 border-gray-400 #{if @player_1_free do "bg-green-200" else "bg-gray-200" end}"}
+      href={
+        if @player_1_free do
+          "/games/#{@game_id}/player/1"
+        else
+          nil
+        end
+      }
+      class={"text-center text-2xl rounded border-4 border-gray-400 #{if @player_1_free do "bg-green-200" else "bg-gray-200" end}"}
     >
       Player 1
     </a>
     <a
-    href={if @player_2_free do "/games/#{@game_id}/player/2" else nil end}
-    class={"text-center text-2xl rounded border-4 border-gray-400 #{if @player_2_free do "bg-green-200" else "bg-gray-200" end}"}
+      href={
+        if @player_2_free do
+          "/games/#{@game_id}/player/2"
+        else
+          nil
+        end
+      }
+      class={"text-center text-2xl rounded border-4 border-gray-400 #{if @player_2_free do "bg-green-200" else "bg-gray-200" end}"}
     >
       Player 2
     </a>
-    <a class={"text-center text-2xl rounded border-4 border-gray-400 bg-gray-200"}>
-      Watcher
-      <br/>
-      (Currently Unsupported)
+    <a class="text-center text-2xl rounded border-4 border-gray-400 bg-gray-200">
+      Watcher <br /> (Currently Unsupported)
     </a>
   </div>
 </div>

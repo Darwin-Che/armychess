@@ -11,10 +11,11 @@ defmodule ArmychessWeb.GameLive.Game do
       Repo.all(Db.GameSession, game_id: game_id)
       |> Map.new(fn s -> {s.player_side, s} end)
 
-    socket = socket
-    |> assign(:game_id, game_id)
-    |> assign(:player_1_free, game_sessions["1"] |> player_free())
-    |> assign(:player_2_free, game_sessions["2"] |> player_free())
+    socket =
+      socket
+      |> assign(:game_id, game_id)
+      |> assign(:player_1_free, game_sessions["1"] |> player_free())
+      |> assign(:player_2_free, game_sessions["2"] |> player_free())
 
     # :timer.send_interval(5000, :tick)
 
@@ -26,9 +27,10 @@ defmodule ArmychessWeb.GameLive.Game do
       Repo.all(Db.GameSession, game_id: socket.assigns.game_id)
       |> Map.new(fn s -> {s.player_side, s} end)
 
-    socket = socket
-    |> assign(:player_1_free, game_sessions["1"] |> player_free())
-    |> assign(:player_2_free, game_sessions["2"] |> player_free())
+    socket =
+      socket
+      |> assign(:player_1_free, game_sessions["1"] |> player_free())
+      |> assign(:player_2_free, game_sessions["2"] |> player_free())
 
     {:noreply, socket}
   end
@@ -36,6 +38,7 @@ defmodule ArmychessWeb.GameLive.Game do
   defp player_free(nil) do
     true
   end
+
   defp player_free(game_session) do
     game_session.session == nil
   end

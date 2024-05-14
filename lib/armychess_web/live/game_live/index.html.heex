@@ -14,15 +14,15 @@
       </tr>
     </thead>
     <tbody>
-  <%= for game <- @games do %>
-      <tr>
-        <td class="block border border-slate-600 text-center bg-green-200 p-2">
-          <a class="block" href={"/games/#{game.id}"}>
-            <%= game.id %>
-          </a>
-        </td>
-      </tr>
-  <% end %>
+      <%= for game <- @games do %>
+        <tr>
+          <td class="block border border-slate-600 text-center bg-green-200 p-2">
+            <a class="block" href={"/games/#{game.id}"}>
+              <%= game.id %>
+            </a>
+          </td>
+        </tr>
+      <% end %>
     </tbody>
   </table>
 </div>

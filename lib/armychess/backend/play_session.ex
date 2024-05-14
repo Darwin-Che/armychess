@@ -13,7 +13,7 @@ defmodule Armychess.Server.PlaySession do
   @spear_config Application.compile_env(:armychess, :spear_config, [])
 
   def spear_config_host() do
-    (@spear_config |> Keyword.get(:host)) || "esdb://localhost:2113"
+    @spear_config |> Keyword.get(:host) || "esdb://localhost:2113"
   end
 
   # Caller API
@@ -24,18 +24,20 @@ defmodule Armychess.Server.PlaySession do
 
   def start({_game_id} = args) do
     DynamicSupervisor.start_child(@dsup_name, {__MODULE__, args})
-    |> IO.inspect
+    |> IO.inspect()
   end
 
   def start_link({game_id} = args) do
     Logger.info("#{__MODULE__}.start_link game_id=#{game_id}")
+
     GenServer.start_link(__MODULE__, args, name: name(game_id))
-    |> IO.inspect
+    |> IO.inspect()
   end
 
   def join(game_id, player_side) do
     Logger.info("#{__MODULE__}.join game_id=#{game_id} player_side=#{player_side}")
     name = name(game_id)
+
     try do
       GenServer.call(name, {:join, game_id, player_side, self()})
     catch
@@ -49,48 +51,55 @@ defmodule Armychess.Server.PlaySession do
   # place_map %{slot => piece}
   def ready(game_id, place_map) do
     resp = GenServer.call(name(game_id), {:ready, place_map})
-    Logger.debug "PlaySession.ready #{game_id} => #{inspect resp}"
+    Logger.debug("PlaySession.ready #{game_id} => #{inspect(resp)}")
     resp
   end
 
   def attack(game_id, piece, from_slot, to_slot) do
     resp = GenServer.call(name(game_id), {:attack, piece, from_slot, to_slot})
-    Logger.debug "PlaySession.attack #{game_id}  #{piece} #{from_slot} #{to_slot} => #{inspect resp}"
+
+    Logger.debug(
+      "PlaySession.attack #{game_id}  #{piece} #{from_slot} #{to_slot} => #{inspect(resp)}"
+    )
+
     resp
   end
 
   def reach(game_id, piece, from_slot, to_slot) do
     resp = GenServer.call(name(game_id), {:reach, piece, from_slot, to_slot})
-    Logger.debug "PlaySession.reach #{game_id} #{piece} #{from_slot} #{to_slot} => #{inspect resp}"
+
+    Logger.debug(
+      "PlaySession.reach #{game_id} #{piece} #{from_slot} #{to_slot} => #{inspect(resp)}"
+    )
+
     resp
   end
 
   def get_state(game_id) do
     resp = GenServer.call(name(game_id), {:get_state})
-    Logger.debug "PlaySession.get_state #{game_id} => #{inspect resp}"
+    Logger.debug("PlaySession.get_state #{game_id} => #{inspect(resp)}")
     resp
   end
 
   # Callbacks
 
-  defstruct [
-    game_id: nil,
-    stream_name: "",
+  defstruct game_id: nil,
+            stream_name: "",
+            # "1" => {view_pid, monitor_ref}
+            connected: %{},
+            spear_conn: nil,
+            # "slot_1xx" => {"player1", "Colonel"}
+            board: %{},
+            # {:ready, []}, {:move, "1"}, {:end, "1"}
+            phase: {:ready, []}
 
-    connected: %{}, # "1" => {view_pid, monitor_ref}
-    spear_conn: nil,
-
-    board: %{}, # "slot_1xx" => {"player1", "Colonel"}
-    phase: {:ready, []}, # {:ready, []}, {:move, "1"}, {:end, "1"}
-    # events: [],
-  ]
-
+  # events: [],
   def init({game_id} = _args) do
-    Logger.debug "Armychess.Server.PlaySession.init #{game_id}"
+    Logger.debug("Armychess.Server.PlaySession.init #{game_id}")
 
     # Check if game already created
     if Repo.get(Db.Game, game_id) == nil do
-      IO.inspect "HERERERERERER"
+      IO.inspect("HERERERERERER")
       {:stop, :normal}
     else
       # Insert Or Update the GameSession
@@ -105,7 +114,7 @@ defmodule Armychess.Server.PlaySession do
       state = %__MODULE__{
         game_id: game_id,
         stream_name: "Game_#{game_id}",
-        spear_conn: conn,
+        spear_conn: conn
       }
 
       # Read existing messages
@@ -123,11 +132,19 @@ defmodule Armychess.Server.PlaySession do
       case handle_event(type, msg, state) do
         {:ok, new_state, _} ->
           new_state
+
         {:error, err} ->
-          Logger.error("PlaySession.init handle_event #{inspect type} #{inspect msg} returns #{inspect err}")
+          Logger.error(
+            "PlaySession.init handle_event #{inspect(type)} #{inspect(msg)} returns #{inspect(err)}"
+          )
+
           state
+
         _ ->
-          Logger.error("PlaySession.init handle_event #{inspect type} #{inspect msg} returns invalid")
+          Logger.error(
+            "PlaySession.init handle_event #{inspect(type)} #{inspect(msg)} returns invalid"
+          )
+
           state
       end
     end)
@@ -162,11 +179,14 @@ defmodule Armychess.Server.PlaySession do
             :ok = spear_send("player_ready", msg, state)
             publish([:player_ready, player_side], state)
             {:reply, {:ok}, new_state}
+
           {:error, err} ->
             {:reply, {:rejected, err}, state}
         end
+
       _ ->
-        {:reply, {:rejected, "Player is invalid : #{inspect pid} in #{inspect state.connected}"}, state}
+        {:reply,
+         {:rejected, "Player is invalid : #{inspect(pid)} in #{inspect(state.connected)}"}, state}
     end
   end
 
@@ -175,18 +195,27 @@ defmodule Armychess.Server.PlaySession do
       [{player_side, _}] ->
         from_slot = slot_abs(from_slot, player_side)
         to_slot = slot_abs(to_slot, player_side)
-        msg = %{"player_side" => player_side, "piece" => piece, "from_slot" => from_slot, "to_slot" => to_slot}
+
+        msg = %{
+          "player_side" => player_side,
+          "piece" => piece,
+          "from_slot" => from_slot,
+          "to_slot" => to_slot
+        }
 
         case handle_event("player_reach", msg, state) do
           {:ok, new_state, _} ->
             :ok = spear_send("player_reach", msg, new_state)
             publish([:player_reach, player_side, from_slot, to_slot], state)
             {:reply, {:ok}, new_state}
+
           {:error, err} ->
             {:reply, {:rejected, err}, state}
         end
+
       _ ->
-        {:reply, {:rejected, "Player is invalid : #{inspect pid} in #{inspect state.connected}"}, state}
+        {:reply,
+         {:rejected, "Player is invalid : #{inspect(pid)} in #{inspect(state.connected)}"}, state}
     end
   end
 
@@ -195,18 +224,27 @@ defmodule Armychess.Server.PlaySession do
       [{player_side, _}] ->
         from_slot = slot_abs(from_slot, player_side)
         to_slot = slot_abs(to_slot, player_side)
-        msg = %{"player_side" => player_side, "piece" => piece, "from_slot" => from_slot, "to_slot" => to_slot}
+
+        msg = %{
+          "player_side" => player_side,
+          "piece" => piece,
+          "from_slot" => from_slot,
+          "to_slot" => to_slot
+        }
 
         case handle_event("player_attack", msg, state) do
           {:ok, new_state, attack_result} ->
             :ok = spear_send("player_attack", msg, new_state)
             publish([:player_attack, player_side, from_slot, to_slot, attack_result], state)
             {:reply, {:ok, attack_result}, new_state}
+
           {:error, err} ->
             {:reply, {:rejected, err}, state}
         end
+
       _ ->
-        {:reply, {:rejected, "Player is invalid : #{inspect pid} in #{inspect state.connected}"}, state}
+        {:reply,
+         {:rejected, "Player is invalid : #{inspect(pid)} in #{inspect(state.connected)}"}, state}
     end
   end
 
@@ -215,8 +253,10 @@ defmodule Armychess.Server.PlaySession do
       [{player_side, _}] ->
         session_state = calc_session_state(player_side, state)
         {:reply, {:ok, session_state}, state}
+
       _ ->
-        {:reply, {:rejected, "Player is invalid : #{inspect pid} in #{inspect state.connected}"}, state}
+        {:reply,
+         {:rejected, "Player is invalid : #{inspect(pid)} in #{inspect(state.connected)}"}, state}
     end
   end
 
@@ -227,10 +267,13 @@ defmodule Armychess.Server.PlaySession do
     case type do
       "player_reach" ->
         handle_event_reach(msg, state)
+
       "player_attack" ->
         handle_event_attack(msg, state)
+
       "player_ready" ->
         handle_event_ready(msg, state)
+
       _ ->
         {:ok, state, nil}
     end
@@ -244,9 +287,11 @@ defmodule Armychess.Server.PlaySession do
         else
           # TODO: Verify place_map
           # Insert into board
-          board = Enum.reduce(place_map, state.board, fn {slot, piece}, board ->
-            board |> Map.put(slot_abs(slot, player_side), {player_side, piece})
-          end)
+          board =
+            Enum.reduce(place_map, state.board, fn {slot, piece}, board ->
+              board |> Map.put(slot_abs(slot, player_side), {player_side, piece})
+            end)
+
           # If both players are ready
           phase =
             if ready_list != [] do
@@ -263,11 +308,15 @@ defmodule Armychess.Server.PlaySession do
     end
   end
 
-  defp handle_event_reach(%{
-      "player_side" => player_side,
-      "piece" => piece,
-      "from_slot" => from_slot,
-      "to_slot" => to_slot}, state) do
+  defp handle_event_reach(
+         %{
+           "player_side" => player_side,
+           "piece" => piece,
+           "from_slot" => from_slot,
+           "to_slot" => to_slot
+         },
+         state
+       ) do
     cond do
       state.phase != {:move, player_side} ->
         {:error, "The game is not expecting move from #{player_side}"}
@@ -291,11 +340,15 @@ defmodule Armychess.Server.PlaySession do
     end
   end
 
-  defp handle_event_attack(%{
-      "player_side" => player_side,
-      "piece" => piece,
-      "from_slot" => from_slot,
-      "to_slot" => to_slot}, state) do
+  defp handle_event_attack(
+         %{
+           "player_side" => player_side,
+           "piece" => piece,
+           "from_slot" => from_slot,
+           "to_slot" => to_slot
+         },
+         state
+       ) do
     cond do
       state.phase != {:move, player_side} ->
         {:error, "The game is not expecting move from #{player_side}"}
@@ -318,21 +371,24 @@ defmodule Armychess.Server.PlaySession do
               state.board
               |> Map.put(to_slot, state.board[from_slot])
               |> Map.delete(from_slot)
+
             :lose ->
               state.board
               |> Map.delete(from_slot)
+
             :draw ->
               state.board
               |> Map.delete(from_slot)
               |> Map.delete(to_slot)
           end
 
-        {:ok, struct(state, board: new_board, phase: {:move, other_side(player_side)}), attack_result}
+        {:ok, struct(state, board: new_board, phase: {:move, other_side(player_side)}),
+         attack_result}
     end
   end
 
   def handle_info({:DOWN, ref, :process, view_pid, _reason}, state) do
-    IO.puts(":DOWN #{inspect view_pid}")
+    IO.puts(":DOWN #{inspect(view_pid)}")
 
     filtered =
       Enum.filter(state.connected, fn {_, {p, _}} -> p == view_pid end)
@@ -376,6 +432,7 @@ defmodule Armychess.Server.PlaySession do
             x
           end
         end)
+
       send(view_pid, player_msg)
     end
   end
@@ -421,7 +478,7 @@ defmodule Armychess.Server.PlaySession do
     %{
       phase: state.phase,
       owned_pieces: owned_pieces,
-      enemy_pieces: enemy_pieces,
+      enemy_pieces: enemy_pieces
     }
   end
 
