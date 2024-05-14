@@ -11,15 +11,21 @@
         <th class="border border-slate-600">
           Game Id
         </th>
+        <th class="border border-slate-600">
+          Created At
+        </th>
       </tr>
     </thead>
     <tbody>
       <%= for game <- @games do %>
         <tr>
-          <td class="block border border-slate-600 text-center bg-green-200 p-2">
+          <td class="border border-slate-600 text-center bg-green-200 p-2">
             <a class="block" href={"/games/#{game.id}"}>
               <%= game.id %>
             </a>
+          </td>
+          <td class="border border-slate-600 text-center p-2">
+            <%= game.inserted_at |> Calendar.Strftime.strftime("%Y-%m-%d %H:%M:%S") |> elem(1) %>
           </td>
         </tr>
       <% end %>

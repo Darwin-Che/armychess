@@ -35,8 +35,13 @@
     </div>
 
     <div class="h-[900px] w-[350px]">
-      SIDE PANEL <br />
-      <%= @game_phase %>
+      <div class="block text-center p-2 bg-yellow-200">
+        STATUS : 
+        <%= if @game_phase == :moving do "YOUR MOVE" end %>
+        <%= if @game_phase == :wait_moving do "WAIT OPPONENT MOVE" end %>
+        <%= if @game_phase == :placing do "PLACE PIECES" end %>
+        <%= if @game_phase == :wait_placing do "WAIT OPPONENT PLACE PIECES" end %>
+      </div>
       <br />
       <br />
       <br />
