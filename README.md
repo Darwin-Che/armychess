@@ -1,18 +1,91 @@
 # Armychess
 
-To start your Phoenix server:
+## Game States
+This is transparent to both players
+```
+{:ready, ["1"]} // The list of ready players
+{:move, "1"} // Player 1 should make a move
+{:end, "1"} // Player 1 wins (nil means draw)
+{:pause_draw, "1"} // Pause for a draw request by Player 1
+```
 
-  * Run `mix setup` to install and setup dependencies
-  * Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+## Controller Messages
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+### ready
+```
+{
+  place_map: {
+    slot_011: "Lietenant",
+    ...
+  }
+}
+```
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+### attack
+```
+{
+  from_slot: "slot_011",
+  to_slot: "slot_951",
+}
+```
 
-## Learn more
+### reach
+```
+{
+  from_slot: "slot_011",
+  to_slot: "slot_951",
+}
+```
 
-  * Official website: https://www.phoenixframework.org/
-  * Guides: https://hexdocs.pm/phoenix/overview.html
-  * Docs: https://hexdocs.pm/phoenix
-  * Forum: https://elixirforum.com/c/phoenix-forum
-  * Source: https://github.com/phoenixframework/phoenix
+### surrender
+```
+{}
+```
+
+### draw_req
+```
+{}
+```
+
+### draw_resp
+```
+{
+  agree: "yes" / "no"
+}
+```
+
+## Game Log
+
+Same thing as the controller messages except that a player id is add to the struct.
+
+## View Messages
+
+### state
+State update is a type of message that contains every view updates on everything other than the pieces.
+```
+{
+  state,
+}
+```
+
+### reach
+Only for the reach update. (Should be accompanied by a state update)
+```
+{
+  player_side: "1",
+  from_slot: "slot_034",
+  to_slot: "slot_024"
+}
+```
+
+### attack
+Only for the reach update. (Should be accompanied by a state update)
+
+```
+{
+  player_side: "1",
+  from_slot: "slot_034",
+  to_slot: "slot_024",
+  result: "win" / "lose",
+}
+```
